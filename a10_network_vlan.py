@@ -58,7 +58,7 @@ options:
   axapi_version:
     description:
       - A10 Thunder/vThunder aXAPI version (2.1 or 3)
-    required: false
+   required: false
     default: ['3']
     choises: ['2.1','3']
   partition:
@@ -155,6 +155,7 @@ EXAMPLES = '''
 '''
 
 
+# Get default argspecs for all modules
 def get_default_argspec():
     rv = dict(
         a10_host=dict(type='str', required=True),
@@ -170,6 +171,7 @@ def get_default_argspec():
     return rv
 
 
+# Get module specific argspecs 
 def get_argspec():
     rv = get_default_argspec()
     rv.update(
@@ -188,6 +190,8 @@ def get_argspec():
     )
     return rv
 
+
+# Open aXAPI session
 def axapi_open_session(module):
     host = module.params['a10_host']
     username = module.params['a10_username']
@@ -202,12 +206,12 @@ def axapi_open_session(module):
         rv = axapi_authenticate(module, axapi_auth_url, username, password)
 
     if axapi_failure(rv):
-        module.fail_json(msg="Failed to open aXAPI session")
+        module.fail_json(msg="Failed to open aXAPI session: %s" % result['response']['err']['msg'])
 
-    module.debug("Succeed open aAPI session")
     return rv
 
 
+# Close aXAPI session
 def axapi_close_session(module, signature):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
@@ -220,19 +224,18 @@ def axapi_close_session(module, signature):
         result = axapi_call(module, axapi_logoff_url)
     
     if axapi_failure(result):
-        module.fail_json(msg="Failed to close aXAPI session")
-
-    module.debug("Succeed close aAPI session")
+        module.fail_json(msg="Failed to close aXAPI session: %s" % result['response']['err']['msg'])
 
 
+# Validate parameters
 def validate(module, signature):
     rc = True
     errors = []
 
-    module.debug("Succeed validation of parameters")
     return rc, errors
 
 
+# Change partition
 def change_partition(module, signature):
     host = module.params['a10_host']
     partition = module.params['partition']
@@ -244,22 +247,37 @@ def change_partition(module, signature):
 
     if axapi_failure(result):
         axapi_close_session(module, signature)
-        module.fail_json(msg="Failed to change partition")
-
-    module.debug("Succeed changing partitions")
+        module.fail_json(msg="Failed to change partition: %s" % result['response']['err']['msg'])
 
 
+# Change device-context (for aVCS)
+def change_device_context(module, signature):
+    host = module.params['a10_host']
+    device = module.params['device']
+    axapi_version = module.params['axapi_version']
+    
+    if axapi_version == '3':
+        # Since device-context does not return any content, axapi_call_v3 is not used here
+        json_post = {"device-context": {"device-id": device}}
+        axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+        headers = {'content-type': 'application/json', 'Authorization': 'A10 %s' % signature}
+        rsp, info = fetch_url(module, axapi_base_url+'device-context', method='POST', data=json.dumps(json_post), headers=headers)
+        if not rsp or info['status'] >= 400:
+            module.fail_json(msg="failed to connect (status code %s), error was %s" % (info['status'], info.get('msg', 'no error given')))
+        rsp.close()
 
+
+# Let the configuration present
 def present(module, signature, result):
-    module.debug("Succeed to execute present")
     return result
 
 
+# Let the configuration absent
 def absent(module, signature, result):
-    module.debug("Succeed to execute absent")
     return result
 
 
+# Return current status
 def current(module, signature, result):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
@@ -271,10 +289,39 @@ def current(module, signature, result):
             result["msg"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
         else:
             result["msg"] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
-    module.debug("Succeed to execute current")
     return result
-    
 
+
+# Write config to curent startup-config
+def write_config(module, signature):
+    host = module.params['a10_host']
+    axapi_version = module.params['axapi_version']
+    
+    if axapi_version == '3':
+        axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+        result = axapi_call_v3(module, axapi_base_url+'write/memory/', method='POST', body='', signature=signature)
+
+    if axapi_failure(result):
+        axapi_close_session(module, signature)
+        module.fail_json(msg="Failed to write config: %s" % result['response']['err']['msg'])
+
+
+# Dry run commands
+def dry_run_command(module):
+    run_errors = []
+
+    result = dict(
+        changed=False,
+        original_message="",
+        msg="Dry run"
+    )
+
+    ## Require checking commands
+
+    return result
+
+    
+# Run commands
 def run_command(module):
     run_errors = []
     
@@ -292,27 +339,30 @@ def run_command(module):
     valid = True
 
     signature = axapi_open_session(module)
-    module.debug("Succeed to achieve signature %s" % signature)
 
     valid, validation_errors = validate(module, signature)
     map(run_errors.append, validation_errors)
-    module.debug("Succeed validation")
     
     if not valid:
-        result["messages"] = "Parameter validation failure."
+        result["msg"] = "Parameter validation failure."
         err_msg = "\n".join(run_errors)
         module.fail_json(msg=err_msg, **result)
 
     if partition:
         change_partition(module, signature)
 
-    module.debug("Main routine based on status")
+    if device:
+        change_device_context(module, signature)
+
     if state == 'present':
         result = present(module, signature, result)
     elif state == 'absent':
         result = absent(module, signature, result)
     elif state == 'current':
         result = current(module, signature, result)
+
+    if write_config == 'yes':
+        write_config(module, signature)
 
     axapi_close_session(module, signature)
 
@@ -326,15 +376,18 @@ def main():
         supports_check_mode=True
     )
 
-    result = run_command(module)
+    if module.check_mode:
+        result = dry_run_command(module)
+    else:
+        result = run_command(module)
 
-    module.exit_json(changed=result["changed"],msg=result["msg"])
+    module.exit_json(**result)
 
 
 import json
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import url_argument_spec
+from ansible.module_utils.urls import url_argument_spec, fetch_url
 from ansible.module_utils.a10 import axapi_call_v3, axapi_call, axapi_authenticate_v3, axapi_authenticate, axapi_failure
 
 if __name__ == '__main__':
