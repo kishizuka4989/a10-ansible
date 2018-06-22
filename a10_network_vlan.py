@@ -80,7 +80,7 @@ options:
     description:
       - State for the configuration in the playbook
     required: true
-    choises: ['present', 'absent', 'current']
+    choises: ['present', 'absent', 'current','statistics','operational']
 
   name:
     description:
@@ -154,6 +154,10 @@ EXAMPLES = '''
         untagged-ethernet-end: 4
 '''
 
+# Global variables
+VLAN_MUTUALLY_EXCLUSIVE_SET = [
+    ['tagged_eth_list','tagged_trunk_list','untagged_eth_list','untagged_trunk_list','untagged_lif']
+]
 
 # Get default argspecs for all modules
 def get_default_argspec():
@@ -165,11 +169,10 @@ def get_default_argspec():
         partition=dict(type='str', required=False, default='shared'),
         device=dict(type='str', required=False),
         write_config=dict(type='bool', required=False, default='yes', choises=['yes','no']),
-        state=dict(type='str', required=True, choises=['present','absent','current'])
+        state=dict(type='str', required=True, choises=['present','absent','current','statistics','operational'])
     )
     rv.update(url_argument_spec())
     return rv
-
 
 # Get module specific argspecs 
 def get_argspec():
@@ -178,8 +181,8 @@ def get_argspec():
         dict(
             name=dict(type='str', required=False),
             user_tag=dict(type='str', required=False),
-            vlan_num=dict(type='str', required=False),
-            shared_vlan=dict(type='str', required=False, default='no', choises=['yes','no']),
+            vlan_num=dict(type='int', required=False),
+            shared_vlan=dict(type='bool', required=False, default='no', choises=['yes','no']),
             ve=dict(type='int', required=False),
             tagged_eth_list=dict(type='list', required=False),
             tagged_trunk_list=dict(type='list', required=False),
@@ -267,8 +270,103 @@ def change_device_context(module, signature):
         rsp.close()
 
 
+# Check if the configuration will be changed if applying the config
+def if_changes(module, signature, result):
+    host = module.params['a10_host']
+    axapi_version = module.params['axapi_version']
+    vlan_num = module.params['vlan_num']
+    name = module.params['name']
+    user_tag = module.params['user_tag']
+    shared_vlan = module.params['shared_vlan']
+    ve = module.params['ve']
+    tagged_eth_list = module.params['tagged_eth_list']
+    tagged_trunk_list = module.params['tagged_trunk_list']
+    untagged_eth_list = module.params['untagged_eth_list']
+    untagged_trunk_list = module.params['untagged_trunk_list']
+    untagged_lif = module.params['untagged_lif']
+    
+    # Initialize return value
+    changes = 0
+
+    if axapi_version == '3':
+        axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+        result_list = axapi_call_v3(module, axapi_base_url+'network/vlan', method='GET', body='', signature=signature)
+        if axapi_failure(result_list):
+            axapi_close_session(module, signature)
+            module.fail_json(msg="Failed to obtain current list.")
+        else:
+            vlan = [vlan['vlan-num'] for vlan in result_list['vlan-list']]
+            if vlan_num in vlan:
+                result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='GET', body='', signature=signature)
+                if axapi_failure(result_list):
+                    axapi_close_session(module, signature)
+                    module.fail_json(msg="Failed to obtain vlan information.")
+                else:
+                    if name:
+                        if result_list["vlan"].has_key("name"):
+                            if result_list["vlan"]["name"] != name:
+                                changes = 1
+                        else:
+                            changes = 2
+                    if user_tag:
+                        if result_list["vlan"].has_key("user-tag"):
+                            if result_list["vlan"]["user-tag"] != user_tag:
+                                changes = 3
+                        else:
+                            changes = 4
+                    if int(shared_vlan):
+                        if result_list["vlan"].has_key("shared-vlan"):
+                            if result_list["vlan"]["shared-vlan"] != shared_vlan:
+                                changes = 5
+                        else:
+                            changes = 6
+                    if ve:
+                        if result_list["vlan"].has_key("ve"):
+                            if result_list["vlan"]["ve"] != ve:
+                                changes = 7
+                        else:
+                            changes = 8
+                    if tagged_eth_list:
+                        if result_list["vlan"].has_key("tagged-eth-list"):
+                            if result_list["vlan"]["tagged-eth-list"] != tagged_eth_list:
+                                changes = 9
+                        else:
+                            changes = 10
+                    if tagged_trunk_list:
+                        if result_list["vlan"].has_key("tagged-trunk-list"):
+                            if result_list["vlan"]["tagged-trunk-list"] != tagged_trunk_list:
+                                changes = 11
+                        else:
+                            changes = 12
+                    if untagged_eth_list:
+                        if result_list["vlan"].has_key("untagged-eth-list"):
+                            if result_list["vlan"]["untagged-eth-list"] != untagged_eth_list:
+                                changes = 13
+                        else:
+                            changes = 14
+                    if untagged_trunk_list: 
+                        if result_list["vlan"].has_key("untagged-trunk-list"):
+                            if result_list["vlan"]["untagged-trunk-list"] != untagged_trunk_list:
+                                changes = 15
+                        else:
+                            changes = 16
+                    if untagged_lif:
+                        if result_list["vlan"].has_key("untagged-lif"):
+                            if result_list["vlan"]["untagged-lif"] != untagged_lif:
+                                changes = 17
+                        else:
+                            changes = 1
+                    result["original_message"] = result_list
+            else: #there is no existing vlan whose number is vlan-num
+                changes = 1
+                
+    return changes
+
+
 # Let the configuration present
 def present(module, signature, result):
+    changes = if_changes(module, signature, result)
+    result["msg"] = changes;
     return result
 
 
@@ -277,7 +375,7 @@ def absent(module, signature, result):
     return result
 
 
-# Return current status
+# Return current config
 def current(module, signature, result):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
@@ -286,14 +384,44 @@ def current(module, signature, result):
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
         if vlan_num:
-            result["msg"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
+            result["config"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
         else:
-            result["msg"] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
+            result["config"] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
+    return result
+
+
+# Return current statistics
+def statistics(module, signature, result):
+    host = module.params['a10_host']
+    axapi_version = module.params['axapi_version']
+    vlan_num = module.params['vlan_num']
+
+    if axapi_version == '3':
+        axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+        if vlan_num:
+            result["stats"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num+'/stats', method='GET', body='', signature=signature)
+        else:
+            result["stats"] = axapi_call_v3(module, axapi_base_url+'network/vlan/stats', method='GET', body='', signature=signature)
+    return result
+
+
+# Return current operational data
+def operational(module, signature, result):
+    host = module.params['a10_host']
+    axapi_version = module.params['axapi_version']
+    vlan_num = module.params['vlan_num']
+
+    if axapi_version == '3':
+        axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+        if vlan_num:
+            result["oper"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num+'/oper', method='GET', body='', signature=signature)
+        else:
+            result["oper"] = axapi_call_v3(module, axapi_base_url+'network/vlan/oper', method='GET', body='', signature=signature)
     return result
 
 
 # Write config to curent startup-config
-def write_config(module, signature):
+def write_memory(module, signature):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
     
@@ -328,7 +456,10 @@ def run_command(module):
     result = dict(
         changed=False,
         original_message="",
-        msg=""
+        msg="",
+        config="",
+        stats="",
+        oper=""
     )
 
     partition = module.params['partition']
@@ -360,9 +491,13 @@ def run_command(module):
         result = absent(module, signature, result)
     elif state == 'current':
         result = current(module, signature, result)
+    elif state == 'statistics':
+        result = statistics(module, signature, result)
+    elif state == 'operational':
+        result = operational(module, signature, result)
 
-    if write_config == 'yes':
-        write_config(module, signature)
+    if write_config:
+        write_memory(module, signature)
 
     axapi_close_session(module, signature)
 
@@ -373,7 +508,8 @@ def run_command(module):
 def main():
     module = AnsibleModule(
         argument_spec=get_argspec(),
-        supports_check_mode=True
+        supports_check_mode=True,
+        mutually_exclusive=VLAN_MUTUALLY_EXCLUSIVE_SET
     )
 
     if module.check_mode:
