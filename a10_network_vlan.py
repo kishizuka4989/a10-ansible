@@ -270,8 +270,13 @@ def change_device_context(module, signature):
         rsp.close()
 
 
-# Check if the configuration will be changed if applying the config
-def if_changes(module, signature, result):
+# Check differences between current and playbook's configs
+# Return value 'differences" indicates as follows
+# 0: No differences between current and playbook's config
+# 1: Playbook's config is not in the current config list
+# 2: Playbook's config is entirely included in the current config
+# 3: Playbook's config is partially different from current config
+def diff_config(module, signature, result, status):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
     vlan_num = module.params['vlan_num']
@@ -286,7 +291,7 @@ def if_changes(module, signature, result):
     untagged_lif = module.params['untagged_lif']
     
     # Initialize return value
-    changes = 0
+    differences = 0
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
@@ -302,71 +307,142 @@ def if_changes(module, signature, result):
                     axapi_close_session(module, signature)
                     module.fail_json(msg="Failed to obtain vlan information.")
                 else:
+                    json_post = result_list
+                    differences = 2
                     if name:
-                        if result_list["vlan"].has_key("name"):
-                            if result_list["vlan"]["name"] != name:
-                                changes = 1
+                        if result_list['vlan'].has_key('name'):
+                            if result_list['vlan']['name'] != name:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('name')
                         else:
-                            changes = 2
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['name'] = name
                     if user_tag:
-                        if result_list["vlan"].has_key("user-tag"):
-                            if result_list["vlan"]["user-tag"] != user_tag:
-                                changes = 3
+                        if result_list['vlan'].has_key('user-tag'):
+                            if result_list['vlan']['user-tag'] != user_tag:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('user-tag')
                         else:
-                            changes = 4
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['user-tag'] = user_tag
                     if int(shared_vlan):
-                        if result_list["vlan"].has_key("shared-vlan"):
-                            if result_list["vlan"]["shared-vlan"] != shared_vlan:
-                                changes = 5
+                        if result_list['vlan'].has_key('shared-vlan'):
+                            if result_list['vlan']['shared-vlan'] != shared_vlan:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('shared-vlan')
                         else:
-                            changes = 6
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['shared-vlan'] = shared_vlan
                     if ve:
-                        if result_list["vlan"].has_key("ve"):
-                            if result_list["vlan"]["ve"] != ve:
-                                changes = 7
+                        if result_list['vlan'].has_key('ve'):
+                            if result_list['vlan']['ve'] != ve:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('ve')
                         else:
-                            changes = 8
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['ve'] = ve
                     if tagged_eth_list:
-                        if result_list["vlan"].has_key("tagged-eth-list"):
-                            if result_list["vlan"]["tagged-eth-list"] != tagged_eth_list:
-                                changes = 9
+                        if result_list['vlan'].has_key('tagged-eth-list'):
+                            if result_list['vlan']['tagged-eth-list'] != tagged_eth_list:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('tagged-eth-list')
                         else:
-                            changes = 10
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['tagged-eth-list'] = tagged_eth_list
                     if tagged_trunk_list:
-                        if result_list["vlan"].has_key("tagged-trunk-list"):
-                            if result_list["vlan"]["tagged-trunk-list"] != tagged_trunk_list:
-                                changes = 11
+                        if result_list['vlan'].has_key('tagged-trunk-list'):
+                            if result_list['vlan']['tagged-trunk-list'] != tagged_trunk_list:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('tagged-trunk-list')
                         else:
-                            changes = 12
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['tagged-trunk-list'] = tagged_trunk_list
                     if untagged_eth_list:
-                        if result_list["vlan"].has_key("untagged-eth-list"):
-                            if result_list["vlan"]["untagged-eth-list"] != untagged_eth_list:
-                                changes = 13
+                        if result_list['vlan'].has_key('untagged-eth-list'):
+                            if result_list['vlan']['untagged-eth-list'] != untagged_eth_list:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('untagged-eth-list')
                         else:
-                            changes = 14
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['untagged-eth-list'] = untagged_eth_list
                     if untagged_trunk_list: 
-                        if result_list["vlan"].has_key("untagged-trunk-list"):
-                            if result_list["vlan"]["untagged-trunk-list"] != untagged_trunk_list:
-                                changes = 15
+                        if result_list['vlan'].has_key('untagged-trunk-list'):
+                            if result_list['vlan']['untagged-trunk-list'] != untagged_trunk_list:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('untagged-trunk-list')
                         else:
-                            changes = 16
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['untagged-trunk-list'] = untagged_trunk_list
                     if untagged_lif:
-                        if result_list["vlan"].has_key("untagged-lif"):
-                            if result_list["vlan"]["untagged-lif"] != untagged_lif:
-                                changes = 17
+                        if result_list['vlan'].has_key('untagged-lif'):
+                            if result_list['vlan']['untagged-lif'] != untagged_lif:
+                                differences = 3
+                            else:
+                                if status == 'absent':
+                                    json_post['vlan'].pop('untagged-lif')
                         else:
-                            changes = 1
-                    result["original_message"] = result_list
+                            differences = 3
+                        if status == 'present':
+                            json_post['vlan']['untagged-lif'] = untagged_lif
             else: #there is no existing vlan whose number is vlan-num
                 changes = 1
+                json_post = result_list
+                if status == 'present':
+                    json_for_create = {
+                        "vlan-num": vlan_num
+                    }
+                    if name:
+                        json_for_create['name'] = name
+                    if user_tag:
+                        json_for_create['user-tag'] = user_tag
+                    if int(shared_vlan):
+                        json_for_create['shared-vlan'] = shared_vlan
+                    if ve:
+                        json_for_create['ve'] = ve
+                    if tagged_eth_list:
+                        json_for_create['tagged-eth-list'].append(tagged_eth_list)
+                    if tagged_trunk_list:
+                        json_for_create['tagged-trunk-list'].append(tagged_trunk_list)
+                    if untagged_eth_list:
+                        json_for_create['untagged-eth-list'].append(untagged_eth_list)
+                    if untagged_trunk_list:
+                        json_for_create['untagged-trunk-list'].append(untagged_trunk_list)
+                    if untagged_lif:
+                        json_for_create['untagged-lif'] = untagged_lif            
+                    json_post['vlan-list'].append(json_for_create)
                 
-    return changes
+    return differences, json_post
 
 
 # Let the configuration present
 def present(module, signature, result):
-    changes = if_changes(module, signature, result)
-    result["msg"] = changes;
+    differences, json_post = diff_config(module, signature, result, status='present')
+    result['msg'] = differences;
+    result['original_messages'] = json_post
     return result
 
 
