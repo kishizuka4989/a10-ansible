@@ -295,12 +295,20 @@ def diff_config(module, signature, result, status):
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        result_list = axapi_call_v3(module, axapi_base_url+'network/vlan', method='GET', body='', signature=signature)
+        result_list = axapi_call_v3(module, axapi_base_url+'network', method='GET', body='', signature=signature)
         if axapi_failure(result_list):
             axapi_close_session(module, signature)
-            module.fail_json(msg="Failed to obtain current list.")
+            module.fail_json(msg="Failed to obtain current network setup %s." % result_list)
         else:
-            vlan = [vlan['vlan-num'] for vlan in result_list['vlan-list']]
+            if not result_list.has_key('vlan-list'):
+                result_list = {
+                    "vlan-list": [
+                    ]
+                }
+                vlan = []
+            else:
+                result_list = axapi_call_v3(module, axapi_base_url+'network/vlan', method='GET', body='', signature=signature)
+                vlan = [vlan['vlan-num'] for vlan in result_list['vlan-list']]
             if vlan_num in vlan:
                 result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='GET', body='', signature=signature)
                 if axapi_failure(result_list):
@@ -424,10 +432,13 @@ def diff_config(module, signature, result, status):
                     if ve:
                         json_for_create['ve'] = ve
                     if tagged_eth_list:
+                        json_for_create['tagged-eth-list'] = []
                         json_for_create['tagged-eth-list'].append(tagged_eth_list)
                     if tagged_trunk_list:
+                        json_for_create['tagged-trunk-list'] = []
                         json_for_create['tagged-trunk-list'].append(tagged_trunk_list)
                     if untagged_eth_list:
+                        json_for_create['untagged-eth-list'] = []
                         json_for_create['untagged-eth-list'].append(untagged_eth_list)
                     if untagged_trunk_list:
                         json_for_create['untagged-trunk-list'].append(untagged_trunk_list)
