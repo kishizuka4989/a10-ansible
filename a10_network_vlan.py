@@ -449,23 +449,23 @@ def diff_config(module, signature, result, status):
                         }
                     }
                     if name:
-                        json_post['name'] = name
+                        json_post['vlan']['name'] = name
                     if user_tag:
-                        json_post['user-tag'] = user_tag
+                        json_post['vlan']['user-tag'] = user_tag
                     if int(shared_vlan):
-                        json_post['shared-vlan'] = shared_vlan
+                        json_post['vlan']['shared-vlan'] = shared_vlan
                     if ve:
-                        json_post['ve'] = ve
+                        json_post['vlan']['ve'] = ve
                     if tagged_eth_list:
-                        json_post['tagged-eth-list'] = tagged_eth_list
+                        json_post['vlan']['tagged-eth-list'] = tagged_eth_list
                     if tagged_trunk_list:
-                        json_post['tagged-trunk-list'] = tagged_trunk_list
+                        json_post['vlan']['tagged-trunk-list'] = tagged_trunk_list
                     if untagged_eth_list:
-                        json_post['untagged-eth-list'] = untagged_eth_list
+                        json_post['vlan']['untagged-eth-list'] = untagged_eth_list
                     if untagged_trunk_list:
-                        json_post['untagged-trunk-list'] = untagged_trunk_list
+                        json_post['vlan']['untagged-trunk-list'] = untagged_trunk_list
                     if untagged_lif:
-                        json_post['untagged-lif'] = untagged_lif
+                        json_post['vlan']['untagged-lif'] = untagged_lif
                 elif status == 'absent':
                     json_post = {}
             
