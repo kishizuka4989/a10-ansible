@@ -300,15 +300,16 @@ def diff_config(module, signature, result, status):
             axapi_close_session(module, signature)
             module.fail_json(msg="Failed to obtain current network setup %s." % result_list)
         else:
-            if not result_list.has_key('vlan-list'):
-                result_list = {
-                    "vlan-list": [
-                    ]
-                }
-                vlan = []
-            else:
+            if result_list['network'].has_key('vlan-list'):
                 result_list = axapi_call_v3(module, axapi_base_url+'network/vlan', method='GET', body='', signature=signature)
                 vlan = [vlan['vlan-num'] for vlan in result_list['vlan-list']]
+            else:
+                result_list = {
+                    "vlan": {
+                    }
+                }
+                vlan = []
+
             if vlan_num in vlan:
                 result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='GET', body='', signature=signature)
                 if axapi_failure(result_list):
@@ -417,7 +418,7 @@ def diff_config(module, signature, result, status):
                         if status == 'present':
                             json_post['vlan']['untagged-lif'] = untagged_lif
             else: #there is no existing vlan whose number is vlan-num
-                changes = 1
+                differences = 1
                 json_post = result_list
                 if status == 'present':
                     json_for_create = {
@@ -432,19 +433,17 @@ def diff_config(module, signature, result, status):
                     if ve:
                         json_for_create['ve'] = ve
                     if tagged_eth_list:
-                        json_for_create['tagged-eth-list'] = []
-                        json_for_create['tagged-eth-list'].append(tagged_eth_list)
+                        json_for_create['tagged-eth-list'] = tagged_eth_list
                     if tagged_trunk_list:
-                        json_for_create['tagged-trunk-list'] = []
-                        json_for_create['tagged-trunk-list'].append(tagged_trunk_list)
+                        json_for_create['tagged-trunk-list'] = tagged_trunk_list
                     if untagged_eth_list:
-                        json_for_create['untagged-eth-list'] = []
-                        json_for_create['untagged-eth-list'].append(untagged_eth_list)
+                        json_for_create['untagged-eth-list'] = untagged_eth_list
                     if untagged_trunk_list:
-                        json_for_create['untagged-trunk-list'].append(untagged_trunk_list)
+                        json_for_create['untagged-trunk-list'] = untagged_trunk_list
                     if untagged_lif:
-                        json_for_create['untagged-lif'] = untagged_lif            
-                    json_post['vlan-list'].append(json_for_create)
+                        json_for_create['untagged-lif'] = untagged_lif
+            
+                    json_post['vlan'] = json_for_create
                 
     return differences, json_post
 
@@ -452,8 +451,31 @@ def diff_config(module, signature, result, status):
 # Let the configuration present
 def present(module, signature, result):
     differences, json_post = diff_config(module, signature, result, status='present')
-    result['msg'] = differences;
-    result['original_messages'] = json_post
+    result['msg'] = differences
+    result['original_message'] = json_post
+
+    host = module.params['a10_host']
+    axapi_version = module.params['axapi_version']
+    vlan_num = module.params['vlan_num']
+
+    if axapi_version == '3':
+        if differences == 1:
+            axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='POST', body=json.dumps(json_post), signature=signature)
+            if axapi_failure(result_list):
+                axapi_close_session(module, signature)
+                module.fail_json(msg="Failed to create VLAN: %s." % result_list)
+            else:
+                result["changed"] = True
+        elif differences == 3:
+            axapi_base_url = 'https://{}/axapi/v3/'.format(host)
+            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='POST', body=json.dumps(json_post), signature=signature)
+            if axapi_failure(result_list):
+                axapi_close_session(module, signature)
+                module.fail_json(msg="Failed to modify VLAN: %s." % result_list)
+            else:
+                result["changed"] = True
+                    
     return result
 
 
