@@ -194,7 +194,7 @@ def get_argspec():
     return rv
 
 
-# Open aXAPI session
+# Open aXAPI session (to obtain signature)
 def axapi_open_session(module):
     host = module.params['a10_host']
     username = module.params['a10_username']
@@ -230,7 +230,7 @@ def axapi_close_session(module, signature):
         module.fail_json(msg="Failed to close aXAPI session: %s" % result['response']['err']['msg'])
 
 
-# Validate parameters
+# Validate parameters (currently no validation)
 def validate(module, signature):
     rc = True
     errors = []
@@ -253,7 +253,7 @@ def change_partition(module, signature):
         module.fail_json(msg="Failed to change partition: %s" % result['response']['err']['msg'])
 
 
-# Change device-context (for aVCS)
+# Change device-context for aVCS
 def change_device_context(module, signature):
     host = module.params['a10_host']
     device = module.params['device']
@@ -291,8 +291,9 @@ def diff_config(module, signature, result, status):
     untagged_trunk_list = module.params['untagged_trunk_list']
     untagged_lif = module.params['untagged_lif']
     
-    # Initialize return value
+    # Initialize return values
     differences = 0
+    config_before = {}
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
@@ -310,7 +311,7 @@ def diff_config(module, signature, result, status):
                     }
                 }
                 vlan = []
-
+            
             if vlan_num in vlan:
                 result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='GET', body='', signature=signature)
                 if axapi_failure(result_list):
@@ -468,15 +469,27 @@ def diff_config(module, signature, result, status):
                         json_post['vlan']['untagged-lif'] = untagged_lif
                 elif status == 'absent':
                     json_post = {}
+
+            config_before = result_list
             
-    return differences, json_post
+    return differences,config_before,json_post
 
 
 # Let the configuration present
 def present(module, signature, result):
-    differences, json_post = diff_config(module, signature, result, status='present')
-    result['msg'] = differences
-    result['original_message'] = json_post
+    differences, config_before, json_post = diff_config(module, signature, result, status='present')
+    result['original_message'] = differences
+    if differences == 1:
+        result['msg'] = "Playbook's root element is not in the current config."
+    elif differences == 2:
+        result['msg'] = "Playbook's config is entirely included in the current config."
+    elif differences == 3:
+        result['msg'] = "Playbook's config is partially different from current config."
+    elif differences == 4:
+        result['msg'] = "All playbook's config attributes are not in the current config."
+    elif differences == 5:
+        reulst['msg'] = "Playbook indicates only the root element in the current config."
+    result['post_config'] = json_post
 
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
@@ -499,15 +512,30 @@ def present(module, signature, result):
                 module.fail_json(msg="Failed to modify VLAN: %s." % result_list)
             else:
                 result["changed"] = True
+        else:
+            result_list = config_before
+        
+        result['diff']['before'] = config_before
+        result['diff']['after'] = result_list
                     
     return result
 
 
 # Let the configuration absent
 def absent(module, signature, result):
-    differences, json_post = diff_config(module, signature, result, status='absent')
-    result['msg'] = differences
-    result['original_message'] = json_post
+    differences, config_before, json_post = diff_config(module, signature, result, status='absent')
+    result['original_message'] = differences
+    if differences == 1:
+        result['msg'] = "Playbook's root element is not in the current config."
+    elif differences == 2:
+        result['msg'] = "Playbook's config is entirely included in the current config."
+    elif differences == 3:
+        result['msg'] = "Playbook's config is partially different from current config."
+    elif differences == 4:
+        result['msg'] = "All playbook's config attributes are not in the current config."
+    elif differences == 5:
+        reulst['msg'] = "Playbook indicates only the root element in the current config."
+    result['post_config'] = json_post
 
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
@@ -530,7 +558,12 @@ def absent(module, signature, result):
                 module.fail_json(msg="Failed to delete VLAN: %s." % result_list)
             else:
                 result["changed"] = True
-
+        else:
+            result_list = config_before
+            
+        result['diff']['before'] = config_before
+        result['diff']['after'] = result_list
+                    
     return result
 
 
@@ -543,9 +576,10 @@ def current(module, signature, result):
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
         if vlan_num:
-            result["config"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
+            result['config'] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
         else:
-            result["config"] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
+            result['config'] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
+
     return result
 
 
@@ -616,9 +650,13 @@ def run_command(module):
         changed=False,
         original_message="",
         msg="",
-        config="",
+        post_config="",
         stats="",
-        oper=""
+        oper="",
+        diff=dict(
+            before=dict(),
+            after=dict()
+        )
     )
 
     partition = module.params['partition']
