@@ -80,7 +80,7 @@ options:
     description:
       - State for the configuration in the playbook
     required: true
-    choises: ['present', 'absent', 'current','statistics','operational']
+    choises: ['present', 'absent', 'current', 'statistics', 'operational']
 
   name:
     description:
@@ -311,6 +311,8 @@ def diff_config(module, signature, result, status):
                     }
                 }
                 vlan = []
+
+            config_before = copy.deepcopy(result_list)
             
             if vlan_num in vlan:
                 result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='GET', body='', signature=signature)
@@ -318,9 +320,10 @@ def diff_config(module, signature, result, status):
                     axapi_close_session(module, signature)
                     module.fail_json(msg="Failed to obtain vlan information.")
                 else:
-                    json_post = result_list
-                    json_post['vlan'].pop('uuid')
-                    json_post['vlan'].pop('a10-url')
+                    config_before = copy.deepcopy(result_list)
+                    json_post = copy.deepcopy(result_list)
+#                    json_post['vlan'].pop('uuid')
+#                    json_post['vlan'].pop('a10-url')
                     diff_sw = 0
                     same_sw = 0
                     absent_sw = 0
@@ -470,8 +473,6 @@ def diff_config(module, signature, result, status):
                 elif status == 'absent':
                     json_post = {}
 
-            config_before = result_list
-            
     return differences,config_before,json_post
 
 
@@ -488,7 +489,7 @@ def present(module, signature, result):
     elif differences == 4:
         result['msg'] = "All playbook's config attributes are not in the current config."
     elif differences == 5:
-        reulst['msg'] = "Playbook indicates only the root element in the current config."
+        result['msg'] = "Playbook indicates only the root element in the current config."
     result['post_config'] = json_post
 
     host = module.params['a10_host']
@@ -513,7 +514,7 @@ def present(module, signature, result):
             else:
                 result["changed"] = True
         else:
-            result_list = config_before
+            result_list = copy.deepcopy(config_before)
         
         result['diff']['before'] = config_before
         result['diff']['after'] = result_list
@@ -534,7 +535,7 @@ def absent(module, signature, result):
     elif differences == 4:
         result['msg'] = "All playbook's config attributes are not in the current config."
     elif differences == 5:
-        reulst['msg'] = "Playbook indicates only the root element in the current config."
+        result['msg'] = "Playbook indicates only the root element in the current config."
     result['post_config'] = json_post
 
     host = module.params['a10_host']
@@ -559,7 +560,7 @@ def absent(module, signature, result):
             else:
                 result["changed"] = True
         else:
-            result_list = config_before
+            result_list = copy.deepcopy(config_before)
             
         result['diff']['before'] = config_before
         result['diff']['after'] = result_list
@@ -630,14 +631,84 @@ def write_memory(module, signature):
 # Dry run commands
 def dry_run_command(module):
     run_errors = []
-
+    
     result = dict(
         changed=False,
         original_message="",
-        msg="Dry run"
+        msg="",
+        post_config="",
+        stats="",
+        oper="",
+        diff=dict(
+            before=dict(),
+            after=dict()
+        )
     )
 
-    ## Require checking commands
+    partition = module.params['partition']
+    device = module.params['device']
+    write_config = module.params['write_config']
+    state = module.params['state']
+
+    valid = True
+
+    signature = axapi_open_session(module)
+
+    valid, validation_errors = validate(module, signature)
+    map(run_errors.append, validation_errors)
+    
+    if not valid:
+        result["msg"] = "Parameter validation failure."
+        err_msg = "\n".join(run_errors)
+        module.fail_json(msg=err_msg, **result)
+
+    if partition:
+        change_partition(module, signature)
+
+    if device:
+        change_device_context(module, signature)
+
+    if state == 'present' or state == 'absent':
+        differences, config_before, json_post = diff_config(module, signature, result, status=state)
+        result['original_message'] = differences
+        if differences == 1:
+            result['msg'] = "Playbook's root element is not in the current config."
+        elif differences == 2:
+            result['msg'] = "Playbook's config is entirely included in the current config."
+        elif differences == 3:
+            result['msg'] = "Playbook's config is partially different from current config."
+        elif differences == 4:
+            result['msg'] = "All playbook's config attributes are not in the current config."
+        elif differences == 5:
+            result['msg'] = "Playbook indicates only the root element in the current config."
+        result['post_config'] = json_post
+        result['diff']['before'] = config_before
+
+        if state == 'present':
+            if differences == 1 or differences == 3 or differences ==4:
+                result['changed'] = True
+                result['diff']['after'] = json_post
+            else:
+                result['changed'] = False
+                result['diff']['after'] = config_before
+        elif state == 'absent':
+            if differences == 2 or differences == 3:
+                result['changed'] = True
+                result['diff']['after'] = json_post
+            elif differences == 5:
+                result['changed'] = True
+                result['diff']['after'] = ""
+            else:
+                result['changed'] = False
+                result['diff']['after'] = config_before
+    else:
+        result['changed'] = False
+        result_list = current(module, signature, result)
+        result['post_config'] = ""
+        result['diff']['before'] = result_list
+        result['diff']['after'] = result_list
+
+    axapi_close_session(module, signature)
 
     return result
 
@@ -717,7 +788,7 @@ def main():
     module.exit_json(**result)
 
 
-import json
+import json, copy
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import url_argument_spec, fetch_url
