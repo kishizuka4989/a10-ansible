@@ -359,17 +359,6 @@ def change_device_context(module, signature):
 def diff_config(module, signature, result, status):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    node_name = module.params['node_name']
-    ip_address = module.params['ip_address']
-    ipv6_address = module.params['ipv6_address']
-    port_list = module.params['port_list']
-    action = module.params['action']
-    external_ip = module.params['external_ip']
-    health_check = module.params['health_check']
-    health_check_disable = module.params['health_check_disable']
-    health_check_protocol_disable = module.params['health_check_protocol_disable']
-    ipv6 = module.params['ipv6']
-    user_tag = module.params['user_tag']
     
     # Initialize return values
     differences = 0
@@ -380,7 +369,7 @@ def diff_config(module, signature, result, status):
         result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL, method='GET', body='', signature=signature)
         if axapi_failure(result_list):
             axapi_close_session(module, signature)
-            module.fail_json(msg="Failed to obtain current GSLB setup %s." % result_list)
+            module.fail_json(msg="Failed to obtain current %s setup %s." % (FIRST_LEVEEL, result_list))
         else:
             if result_list[FIRST_LEVEL].has_key(SECOND_LEVEL_LIST):
                 result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEl+'/'+SECOND_LEVEL, method='GET', body='', signature=signature)
@@ -398,7 +387,7 @@ def diff_config(module, signature, result, status):
                 result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK], method='GET', body='', signature=signature)
                 if axapi_failure(result_list):
                     axapi_close_session(module, signature)
-                    module.fail_json(msg="Failed to obtain gslb service-ip information.")
+                    module.fail_json(msg="Failed to obtain %s %s information.", % (FIRST_LEVEL, SECOND_LEVEL))
                 else:
                     config_before = copy.deepcopy(result_list)
                     json_post = copy.deepcopy(result_list)
@@ -443,17 +432,29 @@ def diff_config(module, signature, result, status):
                                 for current_list in current_lists:
                                     for playbook_list in playbook_lists:
                                         current_list_mandatory_values = []
+                                        current_list_options = current_list
                                         playbook_list_mandatory_values = []
+                                        playbook_list_options = playbook_list
                                         for list_mandatory_key in COMPONENT_ATTRIBUTE_LIST_MANDATORIES[playbook_attribute]:
                                             current_list_mandatory_values.push(current_list[list_mandatory_key])
+                                            current_list_options.pop(list_mandatory_key)
                                             playbook_list_mandatory_values.push(playbook_list[list_mandatory_key])
+                                            playbook_list_options.pop(list_mandatory_key)
                                         if current_list_mandatory_values == playbook_list_mandatory_values:
-                                            if (playbook_list.items() - current_list.items()) == {}:
+                                            if (playbook_list_options.items() - current_list_options.items()) == {}:
                                                 same_sw = 1
+                                                if status == 'absent':
+                                                    if playbook_list_options != {}:
+                                                        for playbook_list_key in playbook_list.keys():
+                                                            if current_list[playbook_list_key] == playbook_list[playbook_list_key]:
+                                                                current_list.pop(playbook_list_key)
+                                                        json_post[SECOND_LEVEL][COMPNENT_ATTRIBUTE_LIST[playbook_attribute]].append(current_list)
                                             else:
                                                 diff_sw = 1
                                             if status == 'present':
-                                                json_post[SECOND_LEVEL][COMPNENT_ATTRIBUTE_LIST[playbook_attribute]].append(playbook_list)
+                                                for playbook_list_key in playbook_list.keys():
+                                                    current_list[playbook_list_key] = playbook_list[playbook_list_key]
+                                                json_post[SECOND_LEVEL][COMPNENT_ATTRIBUTE_LIST[playbook_attribute]].append(current_list)
                                             current_lists.remove(current_list)
                                             playbook_lists.remove(playbook_list)
                                 if current_lists != []:
@@ -511,23 +512,22 @@ def present(module, signature, result):
 
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    vlan_num = module.params['vlan_num']
 
     if axapi_version == '3':
         if differences == 1:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='POST', body=json.dumps(json_post), signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/', method='POST', body=json.dumps(json_post), signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
-                module.fail_json(msg="Failed to create VLAN: %s." % result_list)
+                module.fail_json(msg="Failed to create %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
                 result["changed"] = True
         elif differences == 3 or differences == 4:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='POST', body=json.dumps(json_post), signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK], method='POST', body=json.dumps(json_post), signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
-                module.fail_json(msg="Failed to modify VLAN: %s." % result_list)
+                module.fail_json(msg="Failed to modify %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
                 result["changed"] = True
         else:
@@ -557,23 +557,22 @@ def absent(module, signature, result):
 
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    vlan_num = module.params['vlan_num']
 
     if axapi_version == '3':
         if differences == 2 or differences == 3:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='PUT', body=json.dumps(json_post), signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK], method='PUT', body=json.dumps(json_post), signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
-                module.fail_json(msg="Failed to delete elemetns of VLAN: %s." % result_list)
+                module.fail_json(msg="Failed to delete elemetns of %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
                 result["changed"] = True
         elif differences == 5:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            result_list = axapi_call_v3(module, axapi_base_url+'network/vlan/'+str(vlan_num), method='DELETE', body='', signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK], method='DELETE', body='', signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
-                module.fail_json(msg="Failed to delete VLAN: %s." % result_list)
+                module.fail_json(msg="Failed to delete %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
                 result["changed"] = True
         else:
@@ -589,14 +588,13 @@ def absent(module, signature, result):
 def current(module, signature, result):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    vlan_num = module.params['vlan_num']
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        if vlan_num:
-            result['config'] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num, method='GET', body='', signature=signature)
+        if module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK]:
+            result['config'] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK], method='GET', body='', signature=signature)
         else:
-            result['config'] = axapi_call_v3(module, axapi_base_url+'network/vlan/', method='GET', body='', signature=signature)
+            result['config'] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/', method='GET', body='', signature=signature)
 
     return result
 
@@ -605,14 +603,13 @@ def current(module, signature, result):
 def statistics(module, signature, result):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    vlan_num = module.params['vlan_num']
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        if vlan_num:
-            result["stats"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num+'/stats', method='GET', body='', signature=signature)
+        if module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK]:
+            result["stats"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK]+'/stats', method='GET', body='', signature=signature)
         else:
-            result["stats"] = axapi_call_v3(module, axapi_base_url+'network/vlan/stats', method='GET', body='', signature=signature)
+            result["stats"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/stats', method='GET', body='', signature=signature)
     return result
 
 
@@ -620,14 +617,13 @@ def statistics(module, signature, result):
 def operational(module, signature, result):
     host = module.params['a10_host']
     axapi_version = module.params['axapi_version']
-    vlan_num = module.params['vlan_num']
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        if vlan_num:
-            result["oper"] = axapi_call_v3(module, axapi_base_url+'network/vlan/'+vlan_num+'/oper', method='GET', body='', signature=signature)
+        if module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK]:
+            result["oper"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+module.params[MANDATORY_ATTTRIBUTE_IN_PLAYBOOK]+'/oper', method='GET', body='', signature=signature)
         else:
-            result["oper"] = axapi_call_v3(module, axapi_base_url+'network/vlan/oper', method='GET', body='', signature=signature)
+            result["oper"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/oper', method='GET', body='', signature=signature)
     return result
 
 
