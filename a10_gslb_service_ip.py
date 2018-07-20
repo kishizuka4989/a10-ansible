@@ -234,6 +234,11 @@ COMPONENT_ATTRIBUTES_LIST = {
 COMPONENT_ATTRIBUTES_LIST_MANDATORIES = {
     'port_list': ['port-num', 'port-proto']
 }
+
+COMPONENT_ATTRIBUTES_ALL = {}
+COMPONENT_ATTRIBUTES_ALL.update(COMPONENT_ATTRIBUTES)
+COMPONENT_ATTRIBUTES_ALL.update(COMPONENT_ATTRIBUTES_BOOLEAN)
+COMPONENT_ATTRIBUTES_ALL.update(COMPONENT_ATTRIBUTES_LIST)
         
 MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET = [
     ['ip_address','ipv6_address'],
@@ -377,7 +382,6 @@ def diff_config(module, signature, result, status):
             component_list = []
             if result_list[FIRST_LEVEL].has_key(SECOND_LEVEL_LIST):
                 result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL, method='GET', body='', signature=signature)
-                component_list = []
                 for config_list in result_list[SECOND_LEVEL_LIST]:
                     mandatory_attributes_in_config = []
                     for mandatory_attribute_in_config in MANDATORY_ATTRIBUTES_IN_CONFIG:
@@ -408,36 +412,48 @@ def diff_config(module, signature, result, status):
                 else:
                     config_before = copy.deepcopy(result_list)
                     json_post = copy.deepcopy(result_list)
-                    diff_sw = 0
-                    same_sw = 0
-                    absent_sw = 0
+                    diff_sw = False
+                    same_sw = False
+                    absent_sw = False
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES.keys():
                         if module.params[playbook_attribute]:
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES[playbook_attribute]):
                                 if result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] != module.params[playbook_attribute]:
-                                    diff_sw = 1
+                                    diff_sw = True
                                 else:
-                                    same_sw = 1
+                                    same_sw = True
                                     if status == 'absent':
-                                        json_post[SECOND_LEVEL].pop(module.params[playbook_attribute])
+                                        json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES[playbook_attribute])
                             else:
-                                absent_sw = 1
+                                absent_sw = True
                             if status == 'present':
+                                for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
+                                    if playbook_attribute in mutually_exclusive_list:
+                                        mutually_exclusive_list.remove(playbook_attribute)
+                                        for current_attribute_removed in mutually_exclusive_list:
+                                            if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
+                                                json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES_BOOLEAN.keys():
                         if int(module.params[playbook_attribute]):
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]):
                                 if result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] != module.params[playbook_attribute]:
-                                    diff_sw = 1
+                                    diff_sw = True
                                 else:
-                                    same_sw = 1
+                                    same_sw = True
                                     if status == 'absent':
-                                        json_post[SECOND_LEVEL].pop(module.params[playbook_attribute])
+                                        json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute])
                             else:
-                                absent_sw = 1
+                                absent_sw = True
                             if status == 'present':
+                                for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
+                                    if playbook_attribute in mutually_exclusive_list:
+                                        mutually_exclusive_list.remove(playbook_attribute)
+                                        for current_attribute_removed in mutually_exclusive_list:
+                                            if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
+                                                json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
                                         
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
@@ -446,49 +462,67 @@ def diff_config(module, signature, result, status):
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = []
                                 current_lists = copy.deepcopy(result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]])
                                 playbook_lists = copy.deepcopy(module.params[playbook_attribute])
+                                current_lists_rest = copy.deepcopy(current_lists)
+                                playbook_lists_rest = copy.deepcopy(playbook_lists)
                                 for current_list in current_lists:
                                     for playbook_list in playbook_lists:
                                         current_list_mandatory_values = []
-                                        current_list_options = current_list
+                                        current_list_options = copy.deepcopy(current_list)
                                         playbook_list_mandatory_values = []
-                                        playbook_list_options = playbook_list
+                                        playbook_list_options = copy.deepcopy(playbook_list)
+                                        json_post_list = copy.deepcopy(current_list)
                                         for list_mandatory_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]:
                                             current_list_mandatory_values.append(current_list[list_mandatory_key])
                                             current_list_options.pop(list_mandatory_key)
                                             playbook_list_mandatory_values.append(playbook_list[list_mandatory_key])
                                             playbook_list_options.pop(list_mandatory_key)
-                                        if current_list_mandatory_values == playbook_list_mandatory_values:
-                                            if list(set(playbook_list_options) - set(current_list_options)) == []:
-                                                same_sw = 1
-                                                if status == 'absent':
-                                                    if playbook_list_options != {}:
+                                        if set(current_list_mandatory_values) == set(playbook_list_mandatory_values):
+                                            if playbook_list_options != {}:                                                
+                                                playbook_options_included = True
+                                                if list(set(playbook_list_options) - set(current_list_options)) != []:
+                                                    playbook_options_included = False
+                                                for playbook_list_option_key in playbook_list_options.keys():
+                                                    if current_list_options.has_key(playbook_list_option_key):
+                                                        if playbook_list_options[playbook_list_option_key] != current_list_options[playbook_list_option_key]:
+                                                            playbook_options_included = False
+                                                if playbook_options_included:
+                                                    same_sw = True
+                                                    if status == 'absent':
+                                                        if playbook_list_options != []:
+                                                            for playbook_list_key in playbook_list.keys():
+                                                                if json_post_list[playbook_list_key] == playbook_list[playbook_list_key]:
+                                                                    json_post_list.pop(playbook_list_key)
+                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
+                                                else:
+                                                    diff_sw = True
+                                                    if status == 'present':
                                                         for playbook_list_key in playbook_list.keys():
-                                                            if current_list[playbook_list_key] == playbook_list[playbook_list_key]:
-                                                                current_list.pop(playbook_list_key)
-                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_list)
+                                                            json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
+                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
-                                                diff_sw = 1
-                                            if status == 'present':
-                                                for playbook_list_key in playbook_list.keys():
-                                                    current_list[playbook_list_key] = playbook_list[playbook_list_key]
-                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_list)
-                                            current_lists.remove(current_list)
-                                            playbook_lists.remove(playbook_list)
-                                if current_lists != []:
-                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_lists)
-                                if playbook_lists != []:
-                                    absent_sw = 1
+                                                if status == 'absent':
+                                                    diff_sw = True
+                                                if status == 'present':
+                                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_list)
+                                            current_lists_rest.remove(current_list)
+                                            playbook_lists_rest.remove(playbook_list)
+                                if current_lists_rest != []:
+                                    for current_list in current_lists_rest:
+                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_list)
+                                if playbook_lists_rest != []:
+                                    absent_sw = True
                                     if status == 'present':
-                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(playbook_lists)
+                                        for palybook_list in playbook_lists_rest:
+                                            json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(playbook_list)
 
                     if absent_sw and not(diff_sw) and not(same_sw):
                         differences = 4
-                    elif diff_sw:
-                        differences = 3
-                    elif same_sw and not(diff_sw):
+                    elif not(absent_sw) and not(diff_sw) and not(same_sw):
+                        differences = 5
+                    elif not(absent_sw) and not(diff_sw) and same_sw:
                         differences = 2
                     else:
-                        differences = 5
+                        differences = 3
             else: #there is no existing SECOND_LEVEL component in the current config
                 differences = 1
                 if status == 'present':
