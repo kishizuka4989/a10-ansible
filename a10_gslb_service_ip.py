@@ -156,14 +156,13 @@ options:
     description:
       - Diable health check monitor (boolean)
     required: false
-    default: no
     choises: ['yes','no']
     mutually exclusive: health_check
+    note: require health_check_protocol_disable
   health_check_protocol_disable:
     description: 
       - Disable GSLB protocol health monitor (boolean)
     required: false
-    default: 0
     choises: ['yes','no']
   ipv6:
     description: 
@@ -205,12 +204,9 @@ FIRST_LEVEL = 'gslb'
 SECOND_LEVEL = 'service-ip'
 SECOND_LEVEL_LIST = 'service-ip-list'
 
-MANDATORY_ATTRIBUTES_IN_PLAYBOOK = [
-    'node_name'
-]
-MANDATORY_ATTRIBUTES_IN_CONFIG = [
-    'node-name'
-]
+MANDATORY_ATTRIBUTES = {
+    'node_name': 'node-name'
+}
 
 COMPONENT_ATTRIBUTES = {
     'ip_address': 'ip-address',
@@ -272,8 +268,8 @@ def get_argspec():
             action=dict(type='str', required=False),
             external_ip=dict(type='str', required=False),
             health_check=dict(type='str', required=False),
-            health_check_disable=dict(type='bool', required=False, default='no', choises=['yes','no']),
-            health_check_protocol_disable=dict(type='bool', required=False, default='no', choises=['yes','no']),
+            health_check_disable=dict(type='bool', required=False, choises=['yes','no']),
+            health_check_protocol_disable=dict(type='bool', required=False, choises=['yes','no']),
             ipv6=dict(type='str', required=False),
             user_tag=dict(type='str', required=False) 
         )
@@ -384,7 +380,7 @@ def diff_config(module, signature, result, status):
                 result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL, method='GET', body='', signature=signature)
                 for config_list in result_list[SECOND_LEVEL_LIST]:
                     mandatory_attributes_in_config = []
-                    for mandatory_attribute_in_config in MANDATORY_ATTRIBUTES_IN_CONFIG:
+                    for mandatory_attribute_in_config in MANDATORY_ATTRIBUTES.values():
                         mandatory_attributes_in_config.append(config_list[mandatory_attribute_in_config])
                     component_list.append(mandatory_attributes_in_config)
             else:
@@ -396,7 +392,7 @@ def diff_config(module, signature, result, status):
             config_before = copy.deepcopy(result_list)
 
             mandatory_attributes_in_playbook = []
-            for mandatory_attribute_in_playbook in MANDATORY_ATTRIBUTES_IN_PLAYBOOK:
+            for mandatory_attribute_in_playbook in MANDATORY_ATTRIBUTES.keys():
                 if module.params[mandatory_attribute_in_playbook]:
                     mandatory_attributes_in_playbook.append(module.params[mandatory_attribute_in_playbook])
 
@@ -437,7 +433,7 @@ def diff_config(module, signature, result, status):
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES_BOOLEAN.keys():
-                        if int(module.params[playbook_attribute]):
+                        if not(module.params[playbook_attribute] is None):
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]):
                                 if result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] != module.params[playbook_attribute]:
                                     diff_sw = True
@@ -455,7 +451,7 @@ def diff_config(module, signature, result, status):
                                             if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
                                                 json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
-                                        
+
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
                         if module.params[playbook_attribute]:
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_LIST[playbook_attribute]):
@@ -529,12 +525,15 @@ def diff_config(module, signature, result, status):
                     json_post = {
                         SECOND_LEVEL: {
                         }
-                    }
+                    }                    
+                    for playbook_attribute in MANDATORY_ATTRIBUTES.keys():
+                        if module.params[playbook_attribute]:
+                            json_post[SECOND_LEVEL][MANDATORY_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES.keys():
                         if module.params[playbook_attribute]:
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES_BOOLEAN.keys():
-                        if int(module.params[playbook_attribute]):
+                        if not(module.params[playbook_attribute] is None):
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
                         if module.params[playbook_attribute]:
@@ -575,7 +574,7 @@ def present(module, signature, result):
                 result["changed"] = True
         elif differences == 3 or differences == 4:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
             component_path = module.params[mandatory_attributes_in_playbook[0]]
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
@@ -617,7 +616,7 @@ def absent(module, signature, result):
     if axapi_version == '3':
         if differences == 2 or differences == 3:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
             component_path = module.params[mandatory_attributes_in_playbook[0]]
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
@@ -630,7 +629,7 @@ def absent(module, signature, result):
                 result["changed"] = True
         elif differences == 5:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+            mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
             component_path = module.params[mandatory_attributes_in_playbook[0]]
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
@@ -657,7 +656,7 @@ def current(module, signature, result):
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
         component_path = module.params[mandatory_attributes_in_playbook[0]]
         mandatory_attributes_in_playbook.pop(0)
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
@@ -677,7 +676,7 @@ def statistics(module, signature, result):
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
         component_path = module.params[mandatory_attributes_in_playbook[0]]
         mandatory_attributes_in_playbook.pop(0)
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
@@ -696,7 +695,7 @@ def operational(module, signature, result):
 
     if axapi_version == '3':
         axapi_base_url = 'https://{}/axapi/v3/'.format(host)
-        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES_IN_PLAYBOOK)
+        mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
         component_path = module.params[mandatory_attributes_in_playbook[0]]
         mandatory_attributes_in_playbook.pop(0)
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
