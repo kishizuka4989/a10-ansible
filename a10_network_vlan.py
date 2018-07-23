@@ -781,10 +781,10 @@ def dry_run_command(module):
                 result['diff']['after'] = config_before
     else:
         result['changed'] = False
-        result_list = current(module, signature, result)
+        result = current(module, signature, result)
         result['post_config'] = ""
-        result['diff']['before'] = result_list
-        result['diff']['after'] = result_list
+        result['diff']['before'] = result['config']
+        result['diff']['after'] = result['config']
 
     axapi_close_session(module, signature)
 
