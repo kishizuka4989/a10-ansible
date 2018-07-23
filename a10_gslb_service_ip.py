@@ -393,7 +393,7 @@ def diff_config(module, signature, result, status):
 
             mandatory_attributes_in_playbook = []
             for mandatory_attribute_in_playbook in MANDATORY_ATTRIBUTES.keys():
-                if module.params[mandatory_attribute_in_playbook]:
+                if not(module.params[mandatory_attribute_in_playbook] is None):
                     mandatory_attributes_in_playbook.append(module.params[mandatory_attribute_in_playbook])
 
             if mandatory_attributes_in_playbook in component_list:
@@ -401,7 +401,7 @@ def diff_config(module, signature, result, status):
                 mandatory_attributes_in_playbook.pop(0)
                 for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
                     component_path = component_path+'+'+mandatory_attribute_in_playbook
-                result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path, method='GET', body='', signature=signature)
+                result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path), method='GET', body='', signature=signature)
                 if axapi_failure(result_list):
                     axapi_close_session(module, signature)
                     module.fail_json(msg="Failed to obtain %s %s %s information." % (FIRST_LEVEL, SECOND_LEVEL, component_path))
@@ -413,7 +413,7 @@ def diff_config(module, signature, result, status):
                     absent_sw = False
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES.keys():
-                        if module.params[playbook_attribute]:
+                        if not(module.params[playbook_attribute] is None):
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES[playbook_attribute]):
                                 if result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] != module.params[playbook_attribute]:
                                     diff_sw = True
@@ -453,7 +453,7 @@ def diff_config(module, signature, result, status):
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
-                        if module.params[playbook_attribute]:
+                        if not(module.params[playbook_attribute] is None):
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_LIST[playbook_attribute]):
                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = []
                                 current_lists = copy.deepcopy(result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]])
@@ -510,6 +510,9 @@ def diff_config(module, signature, result, status):
                                     if status == 'present':
                                         for palybook_list in playbook_lists_rest:
                                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(playbook_list)
+                            else:
+                                diff_sw = True
+                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = module.params[playbook_attribute]
 
                     if absent_sw and not(diff_sw) and not(same_sw):
                         differences = 4
@@ -527,16 +530,16 @@ def diff_config(module, signature, result, status):
                         }
                     }                    
                     for playbook_attribute in MANDATORY_ATTRIBUTES.keys():
-                        if module.params[playbook_attribute]:
+                        if not(module.params[playbook_attribute] is None):
                             json_post[SECOND_LEVEL][MANDATORY_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES.keys():
-                        if module.params[playbook_attribute]:
+                        if not(module.params[playbook_attribute] is None):
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES_BOOLEAN.keys():
                         if not(module.params[playbook_attribute] is None):
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
-                        if module.params[playbook_attribute]:
+                        if not(module.params[playbook_attribute] is None):
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = module.params[playbook_attribute]
                 elif status == 'absent':
                     json_post = {}
@@ -579,7 +582,7 @@ def present(module, signature, result):
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
                 component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
-            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path, method='POST', body=json.dumps(json_post), signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path), method='POST', body=json.dumps(json_post), signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
                 module.fail_json(msg="Failed to modify %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
@@ -621,7 +624,7 @@ def absent(module, signature, result):
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
                 component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
-            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path, method='PUT', body=json.dumps(json_post), signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path), method='PUT', body=json.dumps(json_post), signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
                 module.fail_json(msg="Failed to delete elemetns of %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
@@ -634,7 +637,7 @@ def absent(module, signature, result):
             mandatory_attributes_in_playbook.pop(0)
             for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
                 component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
-            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path, method='DELETE', body='', signature=signature)
+            result_list = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path), method='DELETE', body='', signature=signature)
             if axapi_failure(result_list):
                 axapi_close_session(module, signature)
                 module.fail_json(msg="Failed to delete %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
@@ -662,7 +665,7 @@ def current(module, signature, result):
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
             component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
         if component_path:
-            result['config'] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path, method='GET', body='', signature=signature)
+            result['config'] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path), method='GET', body='', signature=signature)
         else:
             result['config'] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/', method='GET', body='', signature=signature)
 
@@ -682,7 +685,7 @@ def statistics(module, signature, result):
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
             component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
         if component_path:
-            result["stats"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path+'/stats', method='GET', body='', signature=signature)
+            result["stats"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path)+'/stats', method='GET', body='', signature=signature)
         else:
             result["stats"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/stats', method='GET', body='', signature=signature)
     return result
@@ -701,7 +704,7 @@ def operational(module, signature, result):
         for mandatory_attribute_in_playbook in mandatory_attributes_in_playbook:
             component_path = component_path+'+'+module.params[mandatory_attribute_in_playbook]
         if component_path:
-            result["oper"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+component_path+'/oper', method='GET', body='', signature=signature)
+            result["oper"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/'+str(component_path)+'/oper', method='GET', body='', signature=signature)
         else:
             result["oper"] = axapi_call_v3(module, axapi_base_url+FIRST_LEVEL+'/'+SECOND_LEVEL+'/oper', method='GET', body='', signature=signature)
     return result
