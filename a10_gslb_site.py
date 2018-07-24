@@ -282,6 +282,15 @@ COMPONENT_ATTRIBUTES_LIST_MANDATORIES = {
     'multiple_geo_locations': ['geo-location']
 }
 
+COMPONENT_ATTRIBUTES_LIST_OBJECTS = {
+    'slb_dev_list': ['vip-server']
+}
+
+COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST = {
+    'vip-server': ['vip-server-name-list','vip-server-v4-list','vip-server-v6-list']
+}
+
+
 COMPONENT_ATTRIBUTES_ALL = {}
 COMPONENT_ATTRIBUTES_ALL.update(COMPONENT_ATTRIBUTES)
 COMPONENT_ATTRIBUTES_ALL.update(COMPONENT_ATTRIBUTES_BOOLEAN)
@@ -529,22 +538,55 @@ def diff_config(module, signature, result, status):
                                                     playbook_options_included = False
                                                 for playbook_list_option_key in playbook_list_options.keys():
                                                     if current_list_options.has_key(playbook_list_option_key):
-                                                        if playbook_list_options[playbook_list_option_key] != current_list_options[playbook_list_option_key]:
+                                                        if playbook_list_option_key in COMPONENT_ATTRIBUTES_LIST_OBJECTS[playbook_attribute]:
+                                                            if set(COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST[playbook_list_option_key]).issuperset(set(playbook_list_options[playbook_list_option_key].keys())):
+                                                                for playbook_list_option_list_key in playbook_list_options[playbook_list_option_key].keys():
+                                                                                                                                            
+                                                                    current_list_options_object_list = copy.deepcopy(current_list_options[playbook_list_option_key][playbook_list_option_list_key])
+                                                                    playbook_list_options_object_list = copy.deepcopy(playbook_list_options[playbook_list_option_key][playbook_list_option_list_key])
+                                                                    for playbook_list_options_object in playbook_list_options[playbook_list_option_key][playbook_list_option_list_key]:
+                                                                        for current_list_options_object in current_list_options_object_list:
+                                                                            if set(current_list_options_object.items()).issuperset(set(playbook_list_options_object.items())):
+                                                                                playbook_list_options_object_list.remove(playbook_list_options_object)
+                                                                    if playbook_list_options_object_list != []:
+                                                                        playbook_options_included = False
+                                                        elif playbook_list_options[playbook_list_option_key] != current_list_options[playbook_list_option_key]:
                                                             playbook_options_included = False
-#                                                            module.fail_json(msg="Debug: %s %s" % (playbook_list_options[playbook_list_option_key],current_list_options[playbook_list_option_key]))
                                                 if playbook_options_included:
                                                     same_sw = True
                                                     if status == 'absent':
                                                         if playbook_list_options != []:
                                                             for playbook_list_key in playbook_list.keys():
-                                                                if json_post_list[playbook_list_key] == playbook_list[playbook_list_key]:
+                                                                if playbook_list_key in COMPONENT_ATTRIBUTES_LIST_OBJECTS[playbook_attribute]:
+                                                                    if set(COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST[playbook_list_key]).issuperset(set(playbook_list[playbook_list_key].keys())):
+                                                                        for playbook_list_list_key in playbook_list_options[playbook_list_key].keys():
+                                                                            for playbook_list_object in playbook_list[playbook_list_key][playbook_list_list_key]:
+                                                                                for current_list_object in current_list[playbook_list_key][playbook_list_list_key]:
+                                                                                    if set(current_list_object.items()).issuperset(set(playbook_list_object.items())):
+                                                                                        json_post_list[playbook_list_key][playbook_list_list_key].remove(current_list_object)
+                                                                elif json_post_list[playbook_list_key] == playbook_list[playbook_list_key]:
                                                                     json_post_list.pop(playbook_list_key)
                                                         json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                                 else:
                                                     diff_sw = True
                                                     if status == 'present':
                                                         for playbook_list_key in playbook_list.keys():
-                                                            json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
+                                                            if playbook_list_key in COMPONENT_ATTRIBUTES_LIST_OBJECTS[playbook_attribute]:
+                                                                if current_list.has_key(playbook_list_key):
+                                                                    if set(COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST[playbook_list_key]).issuperset(set(playbook_list[playbook_list_key].keys())):
+                                                                        for playbook_list_list_key in playbook_list_options[playbook_list_key].keys():
+                                                                            playbook_list_object_list = copy.deepcopy(playbook_list[playbook_list_key][playbook_list_list_key])
+                                                                            current_list_object_list = copy.deepcopy(current_list[playbook_list_key][playbook_list_list_key])
+                                                                            for playbook_list_object in playbook_list[playbook_list_key][playbook_list_list_key]:
+                                                                                for current_list_object in current_list_object_list:
+                                                                                    if set(current_list_object.items()).issuperset(set(playbook_list_object.items())):
+                                                                                        playbook_list_object_list.remove(playbook_list_object)
+                                                                            if playbook_list_object_list != []:
+                                                                                json_post_list[playbook_list_key][playbook_list_list_key].extend(playbook_list_object_list)
+                                                                else:
+                                                                    json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
+                                                            else:
+                                                                json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
                                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
                                                 if status == 'absent':
