@@ -629,9 +629,9 @@ def absent(module, signature, result):
                 module.fail_json(msg="Failed to delete elemetns of %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
                 if config_before != result_list:
-                    result["changed"] = False
-                else:
                     result["changed"] = True
+                else:
+                    result["changed"] = False
         elif differences == 5:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
             mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
@@ -791,7 +791,10 @@ def dry_run_command(module):
                 result['diff']['after'] = config_before
         elif state == 'absent':
             if differences == 2 or differences == 3:
-                result['changed'] = True
+                if config_before != json_post:
+                    result['changed'] = True
+                else:
+                    result['changed'] = False
                 result['diff']['after'] = json_post
             elif differences == 5:
                 result['changed'] = True
