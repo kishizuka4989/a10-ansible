@@ -167,6 +167,37 @@ options:
               ipv6:
                 description: IPv6 address (string)
                 required: true
+  active_rdt:
+    description: Active RDT options
+      - List of active RDT options (list)
+    required: false
+    format:
+      aging-time:
+        description: Aging time (number; min: 1-15360)
+        required: false
+      bind-geoloc:
+        description: Bind RDT to geo-location (boolean)
+        required: false
+        choises: ['yes','no']
+      ignore-count:
+        description: Ignore count if RDT is out of range (number: 0-15)
+        required: false
+      limit:
+        description: Limit of valid RDT (number; msec: 1-16383)
+        required: false
+      mask:
+        description: Client IP subnet mask (string; ipv4-netmask)
+        required: false
+      overlap:
+        description: Enable overlap for geo-location to do longest match (boolean)
+        required: false
+        choises: ['yes','no']
+      range-factor:
+        description: Factor of RDT range (number; 0-1000)
+        required: false
+      smooth-factor:
+        description: Factor of smooth RDT (number; msec: 0-100)
+        required: false
   auto-map:
     description:
       - Enable/Disable DNS auto mapping (boolean)
@@ -281,6 +312,7 @@ COMPONENT_ATTRIBUTES_BOOLEAN = {
 }
 
 COMPONENT_ATTRIBUTES_LIST = {
+    'active_rdt': 'active-rdt',
     'slb_dev_list': 'slb-dev-list',
     'multiple_geo_locations': 'multiple-geo-locations'
 }    
@@ -329,10 +361,12 @@ def get_argspec():
         dict(
             site_name=dict(type='str', required=True),
             slb_dev_list=dict(type='list', required=False),
+            active_rdt=dict(type='list', required=False),
             auto_map=dict(type='bool', required=False, choises=['yes','no']),
             bw_cost=dict(type='bool', required=False, choises=['yes','no']),
             controller=dict(type='str', required=False),
             disable=dict(type='bool', required=False, choises=['yes','no']),
+            ip_server_list=dict(type='list', required=False),
             limit=dict(type='int', required=False),
             multiple_geo_locations=dict(type='list', required=False),
             template=dict(type='str', required=False),
