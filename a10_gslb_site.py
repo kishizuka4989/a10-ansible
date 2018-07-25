@@ -189,6 +189,14 @@ options:
     required: false
     default: no
     choises: ['yes','no']
+  ip_server_list:
+    description:
+      - List of IP server name (list)
+    required: false
+    format:
+      ip-server-name:
+        description: IP server name (string)
+        required: true
   limit:
     description:
       - Limit for bandwidth (number)
@@ -554,19 +562,6 @@ def diff_config(module, signature, result, status):
                                                             playbook_options_included = False
                                                 if playbook_options_included:
                                                     same_sw = True
-                                                    if status == 'absent':
-                                                        if playbook_list_options != []:
-                                                            for playbook_list_key in playbook_list.keys():
-                                                                if playbook_list_key in COMPONENT_ATTRIBUTES_LIST_OBJECTS[playbook_attribute]:
-                                                                    if set(COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST[playbook_list_key]).issuperset(set(playbook_list[playbook_list_key].keys())):
-                                                                        for playbook_list_list_key in playbook_list_options[playbook_list_key].keys():
-                                                                            for playbook_list_object in playbook_list[playbook_list_key][playbook_list_list_key]:
-                                                                                for current_list_object in current_list[playbook_list_key][playbook_list_list_key]:
-                                                                                    if set(current_list_object.items()).issuperset(set(playbook_list_object.items())):
-                                                                                        json_post_list[playbook_list_key][playbook_list_list_key].remove(current_list_object)
-                                                                elif (json_post_list[playbook_list_key] == playbook_list[playbook_list_key]) and not(playbook_list_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]):
-                                                                    json_post_list.pop(playbook_list_key)
-                                                            json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                                 else:
                                                     diff_sw = True
                                                     if status == 'present':
@@ -587,7 +582,19 @@ def diff_config(module, signature, result, status):
                                                                     json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
                                                             else:
                                                                 json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
-                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
+                                                if status == 'absent':
+                                                    if playbook_list_options != []:
+                                                        for playbook_list_key in playbook_list.keys():
+                                                            if playbook_list_key in COMPONENT_ATTRIBUTES_LIST_OBJECTS[playbook_attribute]:
+                                                                if set(COMPONENT_ATTRIBUTES_LIST_OBJECTS_LIST[playbook_list_key]).issuperset(set(playbook_list[playbook_list_key].keys())):
+                                                                    for playbook_list_list_key in playbook_list_options[playbook_list_key].keys():
+                                                                        for playbook_list_object in playbook_list[playbook_list_key][playbook_list_list_key]:
+                                                                            for current_list_object in current_list[playbook_list_key][playbook_list_list_key]:
+                                                                                if set(current_list_object.items()).issuperset(set(playbook_list_object.items())):
+                                                                                    json_post_list[playbook_list_key][playbook_list_list_key].remove(current_list_object)
+                                                            elif (json_post_list[playbook_list_key] == playbook_list[playbook_list_key]) and not(playbook_list_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]):
+                                                                json_post_list.pop(playbook_list_key)
+                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
                                                 if status == 'absent':
                                                     diff_sw = True
@@ -722,7 +729,10 @@ def absent(module, signature, result):
                 axapi_close_session(module, signature)
                 module.fail_json(msg="Failed to delete elemetns of %s %s: %s." % (FIRST_LEVEL, SECOND_LEVEL, result_list))
             else:
-                result["changed"] = True
+                if config_before != result_list:
+                    result["changed"] = False
+                else:
+                    result["changed"] = True
         elif differences == 5:
             axapi_base_url = 'https://{}/axapi/v3/'.format(host)
             mandatory_attributes_in_playbook = copy.deepcopy(MANDATORY_ATTRIBUTES.keys())
@@ -882,7 +892,10 @@ def dry_run_command(module):
                 result['diff']['after'] = config_before
         elif state == 'absent':
             if differences == 2 or differences == 3:
-                result['changed'] = True
+                if config_before != json_post:
+                    result['changed'] = True
+                else:
+                    result['changed'] = False
                 result['diff']['after'] = json_post
             elif differences == 5:
                 result['changed'] = True
