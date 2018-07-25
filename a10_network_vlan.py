@@ -476,7 +476,7 @@ def diff_config(module, signature, result, status):
                                                     if status == 'present':
                                                         for playbook_list_key in playbook_list.keys():
                                                             json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
-                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
+                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
                                                 if status == 'absent':
                                                     diff_sw = True

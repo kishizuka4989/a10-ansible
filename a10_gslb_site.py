@@ -564,9 +564,9 @@ def diff_config(module, signature, result, status):
                                                                                 for current_list_object in current_list[playbook_list_key][playbook_list_list_key]:
                                                                                     if set(current_list_object.items()).issuperset(set(playbook_list_object.items())):
                                                                                         json_post_list[playbook_list_key][playbook_list_list_key].remove(current_list_object)
-                                                                elif json_post_list[playbook_list_key] == playbook_list[playbook_list_key]:
+                                                                elif (json_post_list[playbook_list_key] == playbook_list[playbook_list_key]) and not(playbook_list_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]):
                                                                     json_post_list.pop(playbook_list_key)
-                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
+                                                            json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                                 else:
                                                     diff_sw = True
                                                     if status == 'present':
@@ -587,7 +587,7 @@ def diff_config(module, signature, result, status):
                                                                     json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
                                                             else:
                                                                 json_post_list[playbook_list_key] = playbook_list[playbook_list_key]
-                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
+                                                        json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
                                                 if status == 'absent':
                                                     diff_sw = True
