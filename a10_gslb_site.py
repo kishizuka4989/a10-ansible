@@ -560,20 +560,28 @@ def diff_config(module, signature, result, status):
                     for playbook_attribute in COMPONENT_ATTRIBUTES_DICT.keys():
                         if not(module.params[playbook_attribute] is None):
                             if result_list[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_DICT[playbook_attribute]):
+                                playbook_included = True
                                 if result_list[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]] != module.params[playbook_attribute]:
-                                    diff_sw = True
-                                    if status == 'present':
-                                        for playbook_attribute_key in module.params[playbook_attribute].keys():
-                                            json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]][playbook_attribute_key] = module.params[playbook_attribute][playbook_attribute_key]
-                                    elif status == 'absent':
-                                        for playbook_attribute_key in module.params[playbook_attribute].keys():
-                                            if json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]].has_key(playbook_attribute_key):
-                                                if json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]][playbook_attribute_key] == module.params[playbook_attribute][playbook_attribute_key]:
+                                    for playbook_attribute_key in module.params[playbook_attribute].keys():
+                                        if json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]].has_key(playbook_attribute_key):
+                                            if json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]][playbook_attribute_key] == module.params[playbook_attribute][playbook_attribute_key]:
+                                                if status == 'absent':
                                                     json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]].pop(playbook_attribute_key)
+                                            else:
+                                                playbook_included = False
+                                                if status == 'present':
+                                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]][playbook_attribute_key] = module.params[playbook_attribute][playbook_attribute_key]
+                                        else:
+                                            playbook_included = False
+                                            if status == 'present':
+                                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_DICT[playbook_attribute]][playbook_attribute_key] = module.params[playbook_attribute][playbook_attribute_key]
                                 else:
-                                    same_sw = True
                                     if status == 'absent':
                                         json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_DICT[playbook_attribute])
+                                if playbook_included:
+                                    same_sw = True
+                                else:
+                                    diff_sw = True
                             else:
                                 absent_sw = True
                                 if status == 'present':
@@ -664,10 +672,8 @@ def diff_config(module, signature, result, status):
                                                                 json_post_list.pop(playbook_list_key)
                                                 json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(json_post_list)
                                             else:
-                                                if status == 'absent':
-                                                    diff_sw = True
+                                                same_sw = True
                                                 if status == 'present':
-                                                    same_sw = True
                                                     json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(current_list)
                                             current_lists_rest.remove(current_list)
                                             playbook_lists_rest.remove(playbook_list)
@@ -700,7 +706,7 @@ def diff_config(module, signature, result, status):
                         differences = 2
                     else:
                         differences = 3
-
+                                        
             else: #there is no existing SECOND_LEVEL component in the current config
                 differences = 1
                 if status == 'present':
@@ -722,7 +728,7 @@ def diff_config(module, signature, result, status):
                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = module.params[playbook_attribute]
                 elif status == 'absent':
                     json_post = {}
-
+ 
     return differences,config_before,json_post
 
 
