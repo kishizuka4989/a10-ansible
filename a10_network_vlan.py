@@ -21,7 +21,7 @@ You should have received a copy of the GNU General Public License
 along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-ANSIBLE_METADATA = {'metadata_version': '0.1',
+ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
                     'supported_by': 'community'}
 
@@ -29,12 +29,11 @@ ANSIBLE_METADATA = {'metadata_version': '0.1',
 DOCUMENTATION = '''
 ---
 module: a10_network_vlan
-version_added: 0.1
+version_added: 2.3
 short_description: Manage A10 Networks Thunder/vThunder devices
 description:
     - Manage network vlan objects on A10 Networks devices via aXAPI.
 author: "Kentaro Ishizuka (@kishizuka4989)"
-extends_documentation_fragment: a10
 options:
   a10_host:
     description:
@@ -57,15 +56,14 @@ options:
     choices: ['yes', 'no']
   axapi_version:
     description:
-      - A10 Thunder/vThunder aXAPI version (2.1 or 3)
-   required: false
-    default: ['3']
-    choises: ['2.1','3']
+      - A10 Thunder/vThunder aXAPI version (2.1 or 3) 
+    required: false
+    default: '3'
+    choices: ['2.1', '3']
   partition:
     description:
       - ADP (partition) name to be modified
     required: false
-    default: ['shared']
   device:
     description:
       - aVCS device ID to be modified
@@ -74,90 +72,63 @@ options:
     description:
       - Write the configuration to the memory or not
     required: false
-    default: ['yes']
-    choises: ['yes', 'no']
+    default: 'yes'
+    choices: ['yes', 'no']
   state:
     description:
       - State for the configuration in the playbook
     required: true
-    choises: ['present', 'absent', 'current', 'statistics', 'operational']
-
+    choices: ['present', 'absent', 'current', 'statistics', 'operational']
   vlan_num:
     description:
-      - Number of VLAN (number)
+      - Number of VLAN (number; 2-4094)
     required: true
-    choises: 2-4094
   name:
     description:
-      - Name of VLAN (string: 1-63 characters)
+      - Name of VLAN (string)
     required: false
   user_tag:
     description:
-      - Customized tag of VLAN (string: 1-127 characters)
+      - Customized tag of VLAN (string; 1-127 characters)
     required: false
   shared_vlan:
     description:
-      - Configure VLAN as a shared VLAN (boolean)
+      - Configure VLAN as a shared VLAN (boolean; 'yes' or 'no')
     required: false
-    choises: ['yes','no']
+    choices: ['yes', 'no']
   ve:
     description:
-      - Router interface VE number (number)
+      - Router interface VE number (number; 2-4094)
     required: false
-    choises: 2-4094
   tagged_eth_list:
     description:
-      - Tagged ethernet list (List of tagged-ethernet-start and tagged-ethernet-end)
+      - Tagged ethernet list (List of tagged-ethernet-start (number) and tagged-ethernet-end (number))
     required: false
-    format:
-      tagged-ethernet-start:
-        description: Port number (number)
-        required: true
-      tagged-ethernet-end:
-        description: Port number (number)
-        required: true
   tagged_trunk_list:
     description:
-      - Tagged trunk list (List of tagged-trunk-start and tagged-trunk-end)
+      - Tagged trunk list (List of tagged-trunk-start (number) and tagged-trunk-end (number))
     required: false
-    format:
-      tagged-trunk-start:
-        description: Port number (number)
-        required: true
-      tagged-trunk-end:
-        description: Port number (number)
-        required: true
   untagged_eth_list:
     description:
-      - Untagged ethernet list (List of untagged-ethernet-start and untagged-ethernet-end)
+      - Untagged ethernet list (List of untagged-ethernet-start (number) and untagged-ethernet-end (number))
     required: false
-    format:
-      untagged-ethernet-start:
-        description: Port number (number)
-        required: true
-      untagged-ethernet-end:
-        description: Port number (number)
-        required: true
   untagged_trunk_list:
     description:
-      - Untagged trunk list (List of untagged-trunk-start and untagged-trunk-end)
+      - Untagged trunk list (List of untagged-trunk-start (number) and untagged-trunk-end (number))
     required: false
-    format:
-      untagged-trunk-start:
-        description: Port number (number)
-        required: true
-      untagged-trunk-end:
-        description: Port number (number)
-        required: true
   untagged_lif:
     description:
-      - Untagged logical tunnel interface (number)
+      - Untagged logical tunnel interface (number; 1-128)
     required: false
-    choises: 1-128
+    
 '''
 
 RETURN = '''
-#
+  msg:
+    description: JSON message including configurations
+    returned: always
+    type: json
+
 '''
 
 EXAMPLES = '''

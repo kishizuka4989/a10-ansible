@@ -21,7 +21,7 @@ You should have received a copy of the GNU General Public License
 along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-ANSIBLE_METADATA = {'metadata_version': '0.1',
+ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
                     'supported_by': 'community'}
 
@@ -29,12 +29,11 @@ ANSIBLE_METADATA = {'metadata_version': '0.1',
 DOCUMENTATION = '''
 ---
 module: a10_glsb_site
-version_added: 0.1
+version_added: 2.3
 short_description: Manage A10 Networks Thunder/vThunder devices
 description:
     - Manage gslb site objects on A10 Networks devices via aXAPI.
 author: "Kentaro Ishizuka (@kishizuka4989)"
-extends_documentation_fragment: a10
 options:
   a10_host:
     description:
@@ -57,15 +56,14 @@ options:
     choices: ['yes', 'no']
   axapi_version:
     description:
-      - A10 Thunder/vThunder aXAPI version (2.1 or 3)
-   required: false
-    default: ['3']
-    choises: ['2.1','3']
+      - A10 Thunder/vThunder aXAPI version (2.1 or 3) 
+    required: false
+    default: '3'
+    choices: ['2.1', '3']
   partition:
     description:
       - ADP (partition) name to be modified
     required: false
-    default: ['shared']
   device:
     description:
       - aVCS device ID to be modified
@@ -74,195 +72,91 @@ options:
     description:
       - Write the configuration to the memory or not
     required: false
-    default: ['yes']
-    choises: ['yes', 'no']
+    default: 'yes'
+    choices: ['yes', 'no']
   state:
     description:
       - State for the configuration in the playbook
     required: true
-    choises: ['present', 'absent', 'current', 'statistics', 'operational']
-
+    choices: ['present', 'absent', 'current', 'statistics', 'operational']
   site_name:
     description:
-      - GSLB site name (string: 1-63 characters)
+      - GSLB site name (string; 1-63 characters)
     required: true
   slb_dev_list:
     description: 
-      - SLB device list (list)
+      - SLB device list (List of device-name (string), ip-address (string; IPv4 address), admin-preference (number; 0-255)),
+        auto-detect (string; ip, port, ip-and-port, or disabled), auto-map (boolean; yes or no), client-ip (string; IPv4 address),
+        gateway-ip-addr (string; IPv4 address), health-check-action (string; health-check or helth-check-disable), 
+        max-client (number; 1-2147483647), proto-aging-time (number), proto-aging-fast (number), proto-compatible (boolean; yes or no),
+        rdt-value (number; 1-65535), vip-server (JSON; has list of vip-server-name-list including vip-name (string; 1-63 characters),
+        vip-server-v4-list including ipv4 (string; IPv4 address), and vip-server-v6-list including ipv6 (string; IPv6 address)))
     required: false
-    format:
-      device-name:
-        description: Device name (string: 1-63 characters)
-        required: true
-      ip-address:
-        description: IPv4 address (string)
-        required: true
-      admin-preference:
-        description: Specify administrative preference (number)
-        required: false
-        choises: 0-255
-      auto-detect:
-        description: 'ip': Service IP only; 'port': Service port only; 'ip-and-port': Both service IP and service port; 'disabled': Disable auto-detect (string)
-        required: false
-        choises: ['ip','port','ip-and-port','disabled']
-      auto-map:
-        description: Enable/Disable DNS auto mapping (boolean)
-        required: false
-        default: yes
-        choises: ['yes','no']
-      client-ip:
-        description: Client IPv4 address (string)
-        required: false
-      gateway-ip-addr:
-        description: Gateway IPv4 address (string)
-        required: false
-      health-check-action:
-        description: 'health-check': Enable health check; 'health-check-disable': Disalbe health check (string)
-        required: false
-        choises: ['health-check','health-check-disable']
-      max-client:
-        description: Maxmum number of clients (number)
-        required: false
-        choise: 1-2147483647
-      proto-aging-time:
-        description: GSLB protocol aging time (number)
-        required: false
-      proto-aging-fast:
-        description: Fast GSLB protocol aging (number)
-        required: false
-      proto-compatible:
-        description: Run GSLB protocol in compatible mode (boolean)
-        required: false
-        default: no
-        choises: ['yes','no']
-      rdt-value:
-        description: Round-delay-time (number)
-        required: false
-        choises: 1-65535
-      user-tag:
-        description: Customized tag (string; 1-63 characters)
-        required: false
-      vip-server:
-        description: VIP server list (JSON block)
-        required: false
-        format:
-          vip-server-name-list:
-            description: List of VIP server name (list)
-            required: false
-            format:
-              vip-name:
-                description: VIP name for the SLB device (string; 1-63 characters)
-                required: true
-          vip-server-v4-list:
-            description: List of VIP IPv4 (list)
-            required: false
-            format:
-              ipv4:
-                description: IPv4 address (string)
-                required: true
-          vip-server-v6-list:
-            description: List of VIP IPv6 (list)
-            required: false
-            format:
-              ipv6:
-                description: IPv6 address (string)
-                required: true
   active_rdt:
     description: Active RDT options
-      - List of active RDT options (dict)
+      - List of active RDT options (dict of aging-time (number in minute; 1-15360), bind-geoloc (boolean; yes or no), 
+        ignore-count (number; 0-15), limit (number in msec; 1-16383), mask (string; ipv4-netmask), 
+        overlap (boolean; yes or no), range-factor (number; 0-1000), and smooth-factor (number in msec; 0-100))
     required: false
-    format:
-      aging-time:
-        description: Aging time (number; min: 1-15360)
-        required: false
-      bind-geoloc:
-        description: Bind RDT to geo-location (boolean)
-        required: false
-        choises: ['yes','no']
-      ignore-count:
-        description: Ignore count if RDT is out of range (number: 0-15)
-        required: false
-      limit:
-        description: Limit of valid RDT (number; msec: 1-16383)
-        required: false
-      mask:
-        description: Client IP subnet mask (string; ipv4-netmask)
-        required: false
-      overlap:
-        description: Enable overlap for geo-location to do longest match (boolean)
-        required: false
-        choises: ['yes','no']
-      range-factor:
-        description: Factor of RDT range (number; 0-1000)
-        required: false
-      smooth-factor:
-        description: Factor of smooth RDT (number; msec: 0-100)
-        required: false
   auto-map:
     description:
       - Enable/Disable DNS auto mapping (boolean)
     required: false
     default: yes
-    choises: ['yes','no']
+    choices: ['yes','no']
   bw-cost:
     description:
       - Enable/Disable cost of bandwidth (boolean)
     required: false
     default: no
-    choises: ['yes','no']
+    choices: ['yes','no']
   controller:
     description: 
-      - Local controller for the GSLB site (string: 1-127 characters)
+      - Local controller for the GSLB site (string; 1-127 characters)
     required: false
   disable:
     description:
       - Disable all servers in the GSLB site (boolean)
     required: false
     default: no
-    choises: ['yes','no']
+    choices: ['yes','no']
   ip_server_list:
     description:
-      - List of IP server name (list)
+      - List of IP server name (List of ip-server-name (string; IPv4 address))
     required: false
-    format:
-      ip-server-name:
-        description: IP server name (string)
-        required: true
   limit:
     description:
-      - Limit for bandwidth (number)
+      - Limit for bandwidth (number; 0-2147483647)
     required: false
-    choises: 0-2147483647
   multiple_geo_locations:
     description:
-      - List of Geo locations (list)
+      - List of Geo locations (List of geo-location (string))
     required: false
-    format:
-      geo-location:
-        description: Geo location name (string)
-        required: true
   template:
     description:
-      - Template to collect site information (string: 1-63 characters)
+      - Template to collect site information (string; 1-63 characters)
     required: false
   threshold:
     description:
-      - Threshould of limit (number)
+      - Threshould of limit (number; 0-100)
     required: false
-    choises: 0-100
   user_tag:
     description: 
       - Customized tag (string; 1-127 characters)
     required: false
   weight:
     description: 
-      - Weight for the GSLB site (number)
+      - Weight for the GSLB site (number; 1-100)
     required: false
-    choises: 1-100
+
 '''
 
 RETURN = '''
-#
+  msg:
+    description: JSON message including configurations
+    returned: always
+    type: json
+
 '''
 
 EXAMPLES = '''
@@ -278,13 +172,25 @@ EXAMPLES = '''
     write_config: yes
     state: present
     site_name: local
+    active_rdt:
+      limit: 16300
+      ignore-count: 6
+    multiple_geo_locations:
+      - geo-location: US
+      - geo-location: JP
     slb_dev_list:
       - device-name: A1
         ip-address: 1.0.0.1
         vip-server:
           vip-server-name-list:
-            - vip-name: VIP-HTTP
-            - vip-name: VIP-SSL
+            - vip-name: VIP-HTTP1
+            - vip-name: VIP-SSL1
+      - device-name: A3
+        ip-address: 1.0.0.3
+        vip-server:
+          vip-server-name-list:
+            - vip-name: VIP-HTTP3
+
 '''
 
 # Global variables

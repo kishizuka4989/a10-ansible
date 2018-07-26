@@ -21,7 +21,7 @@ You should have received a copy of the GNU General Public License
 along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-ANSIBLE_METADATA = {'metadata_version': '0.1',
+ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
                     'supported_by': 'community'}
 
@@ -29,12 +29,11 @@ ANSIBLE_METADATA = {'metadata_version': '0.1',
 DOCUMENTATION = '''
 ---
 module: a10_glsb_service_ip
-version_added: 0.1
+version_added: 2.3
 short_description: Manage A10 Networks Thunder/vThunder devices
 description:
     - Manage gslb service-ip objects on A10 Networks devices via aXAPI.
 author: "Kentaro Ishizuka (@kishizuka4989)"
-extends_documentation_fragment: a10
 options:
   a10_host:
     description:
@@ -57,15 +56,14 @@ options:
     choices: ['yes', 'no']
   axapi_version:
     description:
-      - A10 Thunder/vThunder aXAPI version (2.1 or 3)
-   required: false
-    default: ['3']
-    choises: ['2.1','3']
+      - A10 Thunder/vThunder aXAPI version (2.1 or 3) 
+    required: false
+    default: '3'
+    choices: ['2.1', '3']
   partition:
     description:
       - ADP (partition) name to be modified
     required: false
-    default: ['shared']
   device:
     description:
       - aVCS device ID to be modified
@@ -74,108 +72,72 @@ options:
     description:
       - Write the configuration to the memory or not
     required: false
-    default: ['yes']
-    choises: ['yes', 'no']
+    default: 'yes'
+    choices: ['yes', 'no']
   state:
     description:
       - State for the configuration in the playbook
     required: true
-    choises: ['present', 'absent', 'current', 'statistics', 'operational']
-
+    choices: ['present', 'absent', 'current', 'statistics', 'operational']
   node_name:
     description:
-      - Service-ip name (string: 1-63 characters)
+      - Service-ip name (string; 1-63 characters)
     required: true
   ip_address:
     description:
-      - IPv4 address (string: ipv4-address)
-    required: true (if there is no ipv6_address)
-    mutually exclusive: ipv6_address
+      - IPv4 address (string; ipv4-address). Mutually exclusive with ipv6_address.
+    required: true
   ipv6_address:
     description: 
-      - IPv6 address (string: ipv6-address)
-    required: true (if there is no ip_address)
-    mutually exclusive: ip_address
+      - IPv6 address (string; ipv6-address). Mutually exclusive with ip_address.
+    required: true
   port_list:
     description: 
-      - Port list (list)
+      - Port list (List of port-num (number; 0-65534), port-proto (string; tcp or udp), action (string; enable or disable),
+        health-check (string; 1-63 characters) or health-check-disable (boolean; yes or no) or health-check-follow-port (number; 1-65534),
+        health-check-protocol-disable (boolean; yes or no), and user-tag (string; 1-127 characters))
     required: false
-    format:
-      port-num:
-        description: Port number (number)
-        required: true
-        choises: 0-65534
-      port-proto:
-        description: Protocl for port (string)
-        required: true
-        choises: ['tcp','udp']
-      action:
-        description: Enable/Disable GSLB service port (string)
-        required: false
-        default: enable
-        choises: ['enable','disable']
-      health-check:
-        description: Health check monitor (string: 1-63 characters)
-        required: false
-        mutually exclusive: health-check-follow-port and health-check-disable
-      health-check-disable:
-        description: Disable health check monitor (boolean)
-        required: false
-        default: no
-        choises: ['yes','no']
-        mutually exclusive: health-check and health-check-follow-port
-      health-check-follow-port:
-        description: Specify which port to follow for health status (number)
-        required: false
-        choise: 1-65534 (port number)
-        mutually exclusive: health-check and health-check-disable
-      health-check-protocol-disable:
-        description: Disable GSLB protocol health monitor (boolean)
-        required: false
-        default: no
-        choises: ['yes','no']
-      user-tag:
-        description: Customized tag (string: 1-127 characters)
-        required: false         
   action:
     description:
-      - Enable/disable GSLB server (string)
+      - Enable/disable GSLB server (string; enable or disable)
     required: false
-    default: enable
-    choises: ['enable','disable']  
+    choices: ['enable','disable']  
   external_ip:
     description:
-      - External IPv4 address for NAT (string: ipv4-address)
+      - External IPv4 address for NAT (string; ipv4-address)
     required: false
   health_check:
     description:
-      - Health check monitor name (string: 1-63 characters)
+      - Health check monitor name (string; 1-63 characters). Mutually exclusive with health_check_disable.
     required: false
-    mutually exclusive: health_check_disable
   health_check_disable:
     description:
-      - Diable health check monitor (boolean)
+      - Diable health check monitor (boolean; yes or no). Mutually exclusive with health_check. 
+        Require health_check_protocol_disable before setting.
     required: false
-    choises: ['yes','no']
-    mutually exclusive: health_check
-    note: require health_check_protocol_disable
+    choices: ['yes','no']
   health_check_protocol_disable:
     description: 
-      - Disable GSLB protocol health monitor (boolean)
+      - Disable GSLB protocol health monitor (boolean; yes or no)
     required: false
-    choises: ['yes','no']
+    choices: ['yes','no']
   ipv6:
     description: 
-      - IPv6 address mapping (string: ipv6-address)
+      - IPv6 address mapping (string; ipv6-address)
     required: false
   user_tag:
     description: 
-      - Customized tag (string: 1-127 characters)
+      - Customized tag (string; 1-127 characters)
     required: false
+
 '''
 
 RETURN = '''
-#
+  msg:
+    description: JSON message including configurations
+    returned: always
+    type: json
+
 '''
 
 EXAMPLES = '''
@@ -197,6 +159,7 @@ EXAMPLES = '''
         port-proto: tcp
       - port-num: 443
         port-proto: tcp
+
 '''
 
 # Global variables
