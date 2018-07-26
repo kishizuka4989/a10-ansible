@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Ansible module to manage A10 Networks Thunder gslb service-ip objects
+Ansible module to manage A10 Networks Thunder gslb site objects
 (c) 2018, Kentaro Ishizuka <kishizuka@a10networks.com>
 
 This file is part of Ansible
