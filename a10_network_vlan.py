@@ -405,14 +405,14 @@ def diff_config(module, signature, result, status):
                                         json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES[playbook_attribute])
                             else:
                                 absent_sw = True
-                            if status == 'present':
-                                for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
-                                    if playbook_attribute in mutually_exclusive_list:
-                                        mutually_exclusive_list.remove(playbook_attribute)
-                                        for current_attribute_removed in mutually_exclusive_list:
-                                            if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
-                                                json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
-                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
+                                if status == 'present':
+                                    for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
+                                        if playbook_attribute in mutually_exclusive_list:
+                                            mutually_exclusive_list.remove(playbook_attribute)
+                                            for current_attribute_removed in mutually_exclusive_list:
+                                                if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
+                                                    json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
+                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES[playbook_attribute]] =  module.params[playbook_attribute]
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES_BOOLEAN.keys():
                         if not(module.params[playbook_attribute] is None):
@@ -425,14 +425,14 @@ def diff_config(module, signature, result, status):
                                         json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute])
                             else:
                                 absent_sw = True
-                            if status == 'present':
-                                for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
-                                    if playbook_attribute in mutually_exclusive_list:
-                                        mutually_exclusive_list.remove(playbook_attribute)
-                                        for current_attribute_removed in mutually_exclusive_list:
-                                            if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
-                                                json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
-                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
+                                if status == 'present':
+                                    for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
+                                        if playbook_attribute in mutually_exclusive_list:
+                                            mutually_exclusive_list.remove(playbook_attribute)
+                                            for current_attribute_removed in mutually_exclusive_list:
+                                                if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
+                                                    json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
+                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_BOOLEAN[playbook_attribute]] =  module.params[playbook_attribute]
 
                     for playbook_attribute in COMPONENT_ATTRIBUTES_LIST.keys():
                         if not(module.params[playbook_attribute] is None):
@@ -442,18 +442,19 @@ def diff_config(module, signature, result, status):
                                 playbook_lists = copy.deepcopy(module.params[playbook_attribute])
                                 current_lists_rest = copy.deepcopy(current_lists)
                                 playbook_lists_rest = copy.deepcopy(playbook_lists)
-                                for current_list in current_lists:
-                                    for playbook_list in playbook_lists:
+                                for playbook_list in playbook_lists:
+                                    for current_list in current_lists:
                                         current_list_mandatory_values = []
                                         current_list_options = copy.deepcopy(current_list)
                                         playbook_list_mandatory_values = []
                                         playbook_list_options = copy.deepcopy(playbook_list)
                                         json_post_list = copy.deepcopy(current_list)
-                                        for list_mandatory_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]:
-                                            current_list_mandatory_values.append(current_list[list_mandatory_key])
-                                            current_list_options.pop(list_mandatory_key)
-                                            playbook_list_mandatory_values.append(playbook_list[list_mandatory_key])
-                                            playbook_list_options.pop(list_mandatory_key)
+                                        if COMPONENT_ATTRIBUTES_LIST_MANDATORIES.has_key(playbook_attribute):
+                                            for list_mandatory_key in COMPONENT_ATTRIBUTES_LIST_MANDATORIES[playbook_attribute]:
+                                                current_list_mandatory_values.append(current_list[list_mandatory_key])
+                                                current_list_options.pop(list_mandatory_key)
+                                                playbook_list_mandatory_values.append(playbook_list[list_mandatory_key])
+                                                playbook_list_options.pop(list_mandatory_key)
                                         if set(current_list_mandatory_values) == set(playbook_list_mandatory_values):
                                             if playbook_list_options != {}:                                                
                                                 playbook_options_included = True
@@ -489,11 +490,18 @@ def diff_config(module, signature, result, status):
                                 if playbook_lists_rest != []:
                                     absent_sw = True
                                     if status == 'present':
-                                        for palybook_list in playbook_lists_rest:
+                                        for playbook_list in playbook_lists_rest:
                                             json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]].append(playbook_list)
                             else:
-                                diff_sw = True
-                                json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = module.params[playbook_attribute]
+                                absent_sw = True
+                                if status == 'present':
+                                    for mutually_exclusive_list in MUTUALLY_EXCLUSIVE_ATTRIBUTES_SET:
+                                        if playbook_attribute in mutually_exclusive_list:
+                                            mutually_exclusive_list.remove(playbook_attribute)
+                                            for current_attribute_removed in mutually_exclusive_list:
+                                                if json_post[SECOND_LEVEL].has_key(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed]):
+                                                    json_post[SECOND_LEVEL].pop(COMPONENT_ATTRIBUTES_ALL[current_attribute_removed])
+                                    json_post[SECOND_LEVEL][COMPONENT_ATTRIBUTES_LIST[playbook_attribute]] = module.params[playbook_attribute]
 
                     if absent_sw and not(diff_sw) and not(same_sw):
                         differences = 4
@@ -748,7 +756,7 @@ def dry_run_command(module):
     if device:
         change_device_context(module, signature)
 
-    if state == 'present' or state == 'absent':
+    if (state == 'present') or (state == 'absent'):
         differences, config_before, json_post = diff_config(module, signature, result, status=state)
         result['original_message'] = differences
         if differences == 1:
